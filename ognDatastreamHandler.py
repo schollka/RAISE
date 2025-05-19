@@ -7,6 +7,34 @@ from math import radians, sin, cos, sqrt, atan2
 
 
 class OgnClient:
+    '''
+    Regex expression for OGN message decode
+    Example message: 0.936sec:868.370MHz: 1:2:DD9A70 142236: [ +49.00106,  +9.07859]deg   268m  +0.0m/s   0.0m/s 180.0deg  +0.0deg/s __1 04x04m O :01f__-30.02kHz 42.8/52.5dB/0  0e 0.1km 285.8deg -4.6deg + !
+    Message blocks: 
+        - recieving time of ogn-decode
+        - frequency
+        - network ID level
+        - aicraft ID
+        - GNSS time
+        - position [Lat, Long]
+        - GPS altitude
+        - vertical speed
+        - ground speed
+        - heading
+        - turn rate
+        - aircraft type
+        - aicraft dimension
+        - stealth status
+        - NoTrack hex-code
+        - frequency offset
+        - RSSI / SNR
+        - error count
+        - distance to reciever
+        - bearing
+        - elevation angle
+        - + = relayed
+        - ! = message maybe not valid
+    '''
     ognRegex = re.compile(
         r"^(?P<recvTime>\d+\.\d+)sec:(?P<freq>\d+\.\d+)MHz: "
         r"(?P<netCode>\d+):(?P<rfLevel>\d+):(?P<aircraft>[A-F0-9]+) (?P<time>\d+): "
@@ -35,24 +63,27 @@ class OgnClient:
         self.host = host
         self.port = port
 
-        # Initialize aircraft tracks dictionary
+        #Initialize aircraft tracks dictionary
         self.aircraftTracks = defaultdict(lambda: {
-            "track": deque(maxlen=1000),
-            "state": "unknown",
-            "stableState": "unknown",
-            "prevStableState": "unknown",
-            "lastStateChange": datetime.now(timezone.utc),
-            "landedSaved": False,
-            "hasBeenAirborne": False
+            "track": deque(maxlen=1000), #OGN message data
+            "state": "unknown", #current calculated aicraft state
+            "stableState": "unknown", #as stable determined aicraft state
+            "prevStableState": "unknown", #previos stable aicraft state
+            "lastStateChange": datetime.now(timezone.utc), #time of last state change
+            "landedSaved": False, #flag if track data was saved into database
+            "hasBeenAirborne": False #flag if aircraft hast been airborne before
         })
 
     def parseOgnLine(self, line):
-        match = self.ognRegex.match(line)
+        #decode recieved message into seperate data blocks
+
+        match = self.ognRegex.match(line) #search for a match in the recieved message
         if not match:
-            return None
-        d = match.groupdict()
+            return None #if no match was found => probalby a system message, discard and move on
+        d = match.groupdict() #create a dictionary based on the found match
 
         try:
+            #try to demodulate the match into its data fields
             d["recvTime"] = float(d["recvTime"])
             d["freq"] = float(d["freq"])
             d["time"] = int(d["time"])
@@ -80,76 +111,86 @@ class OgnClient:
 
     @staticmethod
     def haversineDistance(lat1, lon1, lat2, lon2):
+        #Tool for the calculation of the distance between two points on earths surface
         R = 6371000  # Earth radius in meters
-        phi1 = radians(lat1)
-        phi2 = radians(lat2)
-        dPhi = radians(lat2 - lat1)
-        dLambda = radians(lon2 - lon1)
+        phi1 = radians(lat1) #convert to radians
+        phi2 = radians(lat2) #convert to radians
+        dPhi = radians(lat2 - lat1) #compute latitude delta
+        dLambda = radians(lon2 - lon1) #compute longitude delta
 
         a = sin(dPhi / 2) ** 2 + cos(phi1) * cos(phi2) * sin(dLambda / 2) ** 2
         c = 2 * atan2(sqrt(a), sqrt(1 - a))
-        return R * c
+        distance = R * c #compute distance
+        return distance
 
-    def detectOnGroundState(self, track):
+    def detectAircraftState(self, track):
+        #function to determine if a aicraft is on the ground at the airport, airborne or something else
         if not track:
-            return "unknown"
+            return "unknown" #no data available
 
-        now = datetime.now(timezone.utc)
-        windowStart = now - timedelta(seconds=self.ON_GROUND_DETECTION_TIME_WINDOW)
-        recentPoints = [p for p in track if p["timestamp"] >= windowStart]
+        now = datetime.now(timezone.utc) #get current time
+        windowStart = now - timedelta(seconds=self.ON_GROUND_DETECTION_TIME_WINDOW) #compute the start time of the time frame
+        recentPoints = [p for p in track if p["timestamp"] >= windowStart] #get all data points in this time frame
 
         if len(recentPoints) < 5:
-            return "unknown"
+            return "unknown" #not enough data points available
 
-        avgAlt = mean(p["alt"] for p in recentPoints)
-        minAltThres = self.AIRPORT_ALTITUDE - self.ALTITUDE_TOLERANCE
-        maxAltThres = self.AIRPORT_ALTITUDE + self.ALTITUDE_TOLERANCE
+        avgAlt = mean(p["alt"] for p in recentPoints) #compute mean altitude in the time frame
+        minAltThres = self.AIRPORT_ALTITUDE - self.ALTITUDE_TOLERANCE #minimum altitude to be considered on ground at the airport
+        maxAltThres = self.AIRPORT_ALTITUDE + self.ALTITUDE_TOLERANCE #maximum altitude to be considered on ground at the airport
 
-        avgSpeed = mean(p["speed"] for p in recentPoints)
-        avgLat = mean(p["lat"] for p in recentPoints)
-        avgLon = mean(p["lon"] for p in recentPoints)
-        distanceToAirport = self.haversineDistance(avgLat, avgLon, self.AIRPORT_LATITUDE, self.AIRPORT_LONGITUDE)
+        avgSpeed = mean(p["speed"] for p in recentPoints) #compute mean ground speed
+        avgLat = mean(p["lat"] for p in recentPoints) #compute mean latitude
+        avgLon = mean(p["lon"] for p in recentPoints) #compute mean longitude
+        distanceToAirport = self.haversineDistance(avgLat, avgLon, self.AIRPORT_LATITUDE, self.AIRPORT_LONGITUDE) #compute distance to the airport
 
         if minAltThres <= avgAlt <= maxAltThres and avgSpeed <= self.MAX_ON_GROUND_SPEED and distanceToAirport <= self.ON_GROUND_POSITION_RADIUS:
-            return "onGround"
-        elif avgSpeed > self.MAX_ON_GROUND_SPEED and (avgAlt > maxAltThres or avgAlt < minAltThres):
+            '''
+            Aicraft can be considered to be on the ground at the airport when:
+                - the average altitude is above a minimum value and below a maximum value based on the airport altitude and a tolerance value
+                - the average ground speed must be below a theshold
+                - the average position must be in close proximity to the airports reference point
+            '''
+            return "onGround" 
+        elif avgSpeed > self.MAX_ON_GROUND_SPEED:
+            '''
+            Aircraft can be considered to be in the air when:
+                - the average speed is above a threshold
+            '''
             return "airborne"
         else:
-            return "unknown"
+            return "unknown" #for all other cases
 
     def removeOldTracks(self):
-        now = datetime.now(timezone.utc)
-        cutoff = now - timedelta(seconds=self.BUFFER_SECONDS)
+        '''
+        Remove all data points that are older then the maximum set time.
+        The additional data is not necessary for the landing detection.
+        Free up valuable RAM.
+        '''
+        now = datetime.now(timezone.utc) #current time
+        cutoff = now - timedelta(seconds=self.BUFFER_SECONDS) #cutoff time, all older message will be deleted
         for aircraftId, data in list(self.aircraftTracks.items()):
             track = data["track"]
             while track and track[0]["timestamp"] < cutoff:
-                track.popleft()
+                track.popleft() #delete data
             if not track:
-                del self.aircraftTracks[aircraftId]
+                del self.aircraftTracks[aircraftId] #delete aicraft entry when no data points are left
 
     def dumpDataToDatabase(self, aircraftId, track):
         print(f"\n[DB] Dumping {len(track)} points for {aircraftId} to database.")
         # TODO: Replace with actual DB logic
 
-    def debounceState(self, aircraftId, newState):
-        entry = self.aircraftTracks[aircraftId]
-        now = datetime.now(timezone.utc)
-
-        if newState != entry["stableState"]:
-            timeInCurrentState = now - entry["lastStateChange"]
-            if timeInCurrentState >= timedelta(seconds=10):
-                entry["stableState"] = newState
-                entry["lastStateChange"] = now
-                return True
-        else:
-            entry["lastStateChange"] = now
-        return False
-
     def processAircraftState(self, aircraftId):
-        aircraft = self.aircraftTracks[aircraftId]
-        currentState = aircraft["state"]
+        '''
+        Determine the state of the aircraft.
+        The state must be considered stable.
+        Store aircraft track data into the database when an aicraft landed on the airport.
+        '''
 
-        stableChanged = self.debounceState(aircraftId, currentState)
+        aircraft = self.aircraftTracks[aircraftId] #get the aircraft
+        currentState = aircraft["state"] #get the newest computed state
+
+        stableChanged = self.debounceState(aircraftId, currentState) #
 
         if stableChanged:
             prevState = aircraft["prevStableState"]
@@ -164,6 +205,20 @@ class OgnClient:
             elif prevState == "onGround" and newState == "airborne":
                 aircraft["hasBeenAirborne"] = True
                 aircraft["landedSaved"] = False
+
+    def debounceState(self, aircraftId, newState):
+        entry = self.aircraftTracks[aircraftId]
+        now = datetime.now(timezone.utc)
+
+        if newState != entry["stableState"]:
+            timeInCurrentState = now - entry["lastStateChange"]
+            if timeInCurrentState >= timedelta(seconds=10):
+                entry["stableState"] = newState
+                entry["lastStateChange"] = now
+                return True
+        else:
+            entry["lastStateChange"] = now
+        return False
 
     def runClient(self):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
@@ -189,7 +244,7 @@ class OgnClient:
                             aircraftId = parsed["aircraft"]
                             self.aircraftTracks[aircraftId]["track"].append(parsed)
 
-                            self.aircraftTracks[aircraftId]["state"] = self.detectOnGroundState(self.aircraftTracks[aircraftId]["track"])
+                            self.aircraftTracks[aircraftId]["state"] = self.detectAircraftState(self.aircraftTracks[aircraftId]["track"])
                             self.processAircraftState(aircraftId)
                             self.removeOldTracks()
 
