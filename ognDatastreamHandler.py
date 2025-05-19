@@ -2,6 +2,8 @@ import socket
 import re
 from collections import defaultdict, deque
 from datetime import datetime, timedelta, timezone
+from statistics import mean
+from math import radians, sin, cos, sqrt, atan2
 
 #System parameters
 HOST = "127.0.0.1"  #localhost
@@ -12,9 +14,14 @@ BUFFER_SECONDS = 300  #5 minutes of data retention per aircraft in seconds
 LANDING_LOOKBACK_SECONDS = 30 #Time window to consider data for landing detection [s]
 AIRPORT_ALTITUDE = 266 #Airport altitude [m]
 ALTITUDE_TOLERANCE = 15 #Tolerance for aicraft altitude when on ground [m]
+MAX_ON_GOUND_SPEED = 20 / 3.6 #Maximum gound speed for an aicraft to be considered on ground [m/s]
+ON_GROUND_DETECTION_TIME_WINDOW = 30 #The last X seconds of the track data will be used to determine the onGound or airborne state [s]
+AIRPORT_LATITUDE = 49.002222 #Latitude of the airport reference position, use center of runway if possible [°]
+AIRPORT_LONGITUDE = 9.086389 #Longitude of the airport reference position, use center of runway if possible [°]
+ON_GROUND_POSITION_RADIUS = 750 #All aircrafts on the ground within this distance from the airport reference will be considered landed [m]
 
 ognRegex = re.compile(
-    r"^(?P<recvTime>\d+\.\d+)sec:(?P<freq>\d{3}\.\d{3})MHz: "
+    r"^(?P<recvTime>\d+\.\d+)sec:(?P<freq>\d+\.\d+)MHz: "
     r"(?P<netCode>\d+):(?P<rfLevel>\d+):(?P<aircraft>[A-F0-9]+) (?P<time>\d+): "
     r"\[\s*(?P<lat>[+-]?\d+\.\d+),\s*(?P<lon>[+-]?\d+\.\d+)\]deg\s+"
     r"(?P<alt>\d+)m\s+(?P<vs>[+-]?\d+\.\d+)m/s\s+(?P<speed>\d+\.\d+)m/s\s+"
@@ -23,7 +30,7 @@ ognRegex = re.compile(
     r"(?P<stealth>[OS])\s+:(?P<noTrack>[0-9a-f]{3})__"
     r"(?P<freqOffset>[+-]?\d+\.\d+)kHz\s+(?P<snr>\d+\.\d+)/(?P<rssi>\d+\.\d+)dB/(?P<errCount>\d+)\s+"
     r"(?P<eStatus>\d+)e\s+(?P<distance>\d+\.\d+)km\s+(?P<bearing>\d+\.\d+)deg\s+(?P<elevAngle>[+-]?\d+\.\d+)deg"
-    r"(?:\s+(?P<flagged>!))?$"
+    r"(?:\s*(?P<relayed>\+))?\s*$"
 )
 #regex for complex ogn message
 # 0.585sec:868.174MHz: 1:2:DD9C20 142218: [ +48.95403,  +9.62327]deg  1401m  -3.2m/s  27.4m/s 204.5deg  +0.2deg/s __2 03x03m O :00f__-26.07kHz  4.0/15.0dB/2  0e    40.1km 097.3deg  +1.2deg + 
@@ -62,6 +69,7 @@ def parseOgnLine(line):
         d["elevAngle"] = float(d["elevAngle"])
         d["timestamp"] = datetime.now(timezone.utc)
         d["reducedDataConfidence"] = d.get("flagged") == "!"
+        d["relayed"] = bool(d.get("relayed"))  
     except Exception as e:
         print(f"OGN message parsing error: {e}")
         return None
@@ -71,11 +79,60 @@ def removeOldTracks():
     #remove old data points that are no longer needed
     now = datetime.now(timezone.utc)
     cutoff = now - timedelta(seconds=BUFFER_SECONDS)
-    for aircraftId, track in list(aircraftTracks.items()):
+    for aircraftId, data in list(aircraftTracks.items()):
+        track = data["track"]
         while track and track[0]["timestamp"] < cutoff:
             track.popleft()
         if not track:
             del aircraftTracks[aircraftId]
+
+def haversineDistance(lat1, lon1, lat2, lon2):
+    #Computes the distance between two points on earths surface
+
+    R = 6371000 #Earth radius
+    phi1 = radians(lat1)
+    phi2 = radians(lat2)
+    dPhi = radians(lat2 - lat1) #delta in latitude
+    dLambda = radians(lon2 - lon1) #delta in longitude
+
+    a = sin(dPhi / 2)**2 + cos(phi1) * cos(phi2) * sin(dLambda / 2)**2
+    c = 2 * atan2(sqrt(a), sqrt(1 - a))
+    distance = R * c #distance between both points in meters
+    return distance
+
+def detectOnGroundState(track):
+    """
+    Determines whether an aircraft is 'onGround' or 'airborne' based on the last 30 seconds of data.
+    The average altitude must be below a set threshold and the average gound speed below a maximum to be considered on gound.
+    """
+    if not track:
+        return "unknown" #no track data available
+
+    now = datetime.now(timezone.utc) #get current time
+    windowStart = now - timedelta(seconds=30) #calculate the start time of the time window
+
+    #filter track to get only the data in the time window
+    recentPoints = [p for p in track if p["timestamp"] >= windowStart]
+    
+    if len(recentPoints) < 5:
+        return "unknown" #Not enough data to make a confident decision
+
+    avgAlt = mean(p["alt"] for p in recentPoints) #calculate the average altitude
+    minAltThres = AIRPORT_ALTITUDE - ALTITUDE_TOLERANCE #minimum altitude to be considered on ground at the airport
+    maxAltThres = AIRPORT_ALTITUDE + ALTITUDE_TOLERANCE #maximum altitude to be considered on ground at the airport
+
+    avgSpeed = mean(p["speed"] for p in recentPoints) #calculate average ground speed
+    avgLat = mean(p["lat"] for p in recentPoints) #calculate average latitude
+    avgLon = mean(p["lon"] for p in recentPoints) #calculate average longitude
+    distanceToAirport = haversineDistance(avgLat, avgLon, AIRPORT_LATITUDE, AIRPORT_LONGITUDE)
+
+
+    if minAltThres <= avgAlt <= maxAltThres and avgSpeed <= MAX_ON_GOUND_SPEED and distanceToAirport <= ON_GROUND_POSITION_RADIUS:
+        return "onGround" #aircraft is on ground
+    elif avgSpeed > MAX_ON_GOUND_SPEED and (avgAlt > maxAltThres or avgAlt < minAltThres):
+        return "airborne" #aircraft is airborne
+    else:
+        return "unknown" #unknown state
 
 def runClient(host, port):
     #client code
@@ -100,11 +157,13 @@ def runClient(host, port):
                     parsed = parseOgnLine(line) #get data from message with the parser
                     if parsed:
                         aircraftId = parsed["aircraft"] #get aircraft ID
-                        aircraftTracks[aircraftId].append(parsed) #append data to aircraft
+                        aircraftTracks[aircraftId]["track"].append(parsed) #append data to aircraft
+                        aircraftTracks[aircraftId]["state"] = detectOnGroundState(aircraftTracks[aircraftId]["track"])
                         removeOldTracks() #remove old data points
 
                         #Terminal Output
                         print(f"✈ {aircraftId} | "
+                              f"State: {aircraftTracks[aircraftId]["state"]} | "
                               f"{parsed['timestamp'].strftime('%H:%M:%S')} | "
                               f"Pos: {parsed['lat']:.5f}, {parsed['lon']:.5f} | "
                               f"Alt: {parsed['alt']}m | "
@@ -114,7 +173,8 @@ def runClient(host, port):
                               f"TrnRate: {parsed['turnRate']:03.1f}°/s | "
                               f"Dist: {parsed['distance']:02.1f}km | "
                               f"Bearing: {parsed['bearing']:03.1f}° | "
-                              f"Reduced Confidence: {parsed['reducedDataConfidence']}")
+                              f"Reduced Confidence: {parsed['reducedDataConfidence']} | "
+                              f"Relayed: {parsed['relayed']}")
         except KeyboardInterrupt:
             print("\nClient terminated by user.")
 
