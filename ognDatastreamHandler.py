@@ -37,8 +37,12 @@ ognRegex = re.compile(
 
 #Initilize the RAM storage for the aircraft data, maximum 1000 datasets per aircraft
 aircraftTracks = defaultdict(lambda: {
-    "track": deque(maxlen=1000), #1000 datasets
-    "state": "unknown" #default aircraft status
+    "track": deque(maxlen=1000),
+    "state": "unknown",
+    "stableState": "unknown",
+    "stateChangeTime": None,
+    "landedSaved": False,
+    "hasBeenAirborne": False
 })
 
 
@@ -134,6 +138,50 @@ def detectOnGroundState(track):
     else:
         return "unknown" #unknown state
 
+def dumpDataToDatabase(aircraftId, track):
+    print(f"\n[DB] Dumping {len(track)} points for {aircraftId} to database.")
+    # TODO: Replace with actual DB logic
+
+def debounceState(aircraftId, newState):
+    entry = aircraftTracks[aircraftId]
+    now = datetime.now(timezone.utc)
+    
+    if newState != entry["stableState"]:
+        timeInCurrentState = now - entry["lastStateChange"]
+        if timeInCurrentState >= timedelta(seconds=10):  # Debounce time: 10 seconds
+            entry["stableState"] = newState
+            entry["lastStateChange"] = now
+            return True  # State changed
+    elif newState == entry["stableState"]:
+        entry["lastStateChange"] = now  # reset timer if stable state
+    return False  # No effective change
+
+def processAircraftState(aircraftId):
+    aircraft = aircraftTracks[aircraftId]
+    currentState = aircraft["state"]
+
+    debounceState(aircraftId, currentState)  # Stabilen Zustand updaten
+    stableState = aircraft["stableState"]
+
+    # Prüfe Übergang (nur wenn stabiler Zustand sich geändert hat)
+    if "prevStableState" not in aircraft:
+        aircraft["prevStableState"] = stableState
+
+    if stableState != aircraft["prevStableState"]:
+        prevState = aircraft["prevStableState"]
+        aircraft["prevStableState"] = stableState
+
+        # Übergang airborne -> onGround
+        if prevState == "airborne" and stableState == "onGround":
+            if aircraft["hasBeenAirborne"] and not aircraft["landedSaved"]:
+                dumpDataToDatabase(aircraftId)
+                aircraft["landedSaved"] = True
+        # Übergang onGround -> airborne
+        elif prevState == "onGround" and stableState == "airborne":
+            aircraft["hasBeenAirborne"] = True
+            aircraft["landedSaved"] = False
+
+
 def runClient(host, port):
     #client code
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
@@ -156,25 +204,45 @@ def runClient(host, port):
                         continue
                     parsed = parseOgnLine(line) #get data from message with the parser
                     if parsed:
-                        aircraftId = parsed["aircraft"] #get aircraft ID
-                        aircraftTracks[aircraftId]["track"].append(parsed) #append data to aircraft
+                        aircraftId = parsed["aircraft"]
+                        aircraftTracks[aircraftId]["track"].append(parsed)
+                        
+                        # Zustandsbestimmung
                         aircraftTracks[aircraftId]["state"] = detectOnGroundState(aircraftTracks[aircraftId]["track"])
-                        removeOldTracks() #remove old data points
+
+                        # Zustand verarbeiten und ggf. Daten speichern
+                        processAircraftState(aircraftId)
+
+                        # Alte Daten entfernen
+                        removeOldTracks()
 
                         #Terminal Output
+                        '''
                         print(f"✈ {aircraftId} | "
                               f"State: {aircraftTracks[aircraftId]["state"]} | "
+                              f"StableState: {aircraftTracks[aircraftId]['stableState']} | "
                               f"{parsed['timestamp'].strftime('%H:%M:%S')} | "
                               f"Pos: {parsed['lat']:.5f}, {parsed['lon']:.5f} | "
                               f"Alt: {parsed['alt']}m | "
                               f"Spd: {parsed['speed']:.1f}m/s | "
                               f"V/S: {parsed['vs']:+.1f}m/s | "
-                              f"Trk: {parsed['track']:03.1f}° | "
-                              f"TrnRate: {parsed['turnRate']:03.1f}°/s | "
                               f"Dist: {parsed['distance']:02.1f}km | "
-                              f"Bearing: {parsed['bearing']:03.1f}° | "
                               f"Reduced Confidence: {parsed['reducedDataConfidence']} | "
-                              f"Relayed: {parsed['relayed']}")
+                              f"Relayed: {parsed['relayed']}")   
+                        '''
+
+                        print("------------------------------------")
+                        for aircraftID, trackInfo in aircraftTracks.items():
+                            if trackInfo["track"]:
+                                lastPosition = trackInfo["track"][-1]
+                                print(f"✈ {aircraftId} | "
+                                    f"State: {trackInfo["state"]} | "
+                                    f"StableState: {trackInfo['stableState']} | "
+                                    f"Pos: {lastPosition['lat']:.5f}, {lastPosition['lon']:.5f} | "
+                                    f"Alt: {lastPosition['alt']}m | "
+                                    f"Spd: {lastPosition['speed']:.1f}m/s | ")
+
+                        print("------------------------------------")             
         except KeyboardInterrupt:
             print("\nClient terminated by user.")
 
