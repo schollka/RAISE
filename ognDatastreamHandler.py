@@ -40,7 +40,8 @@ aircraftTracks = defaultdict(lambda: {
     "track": deque(maxlen=1000),
     "state": "unknown",
     "stableState": "unknown",
-    "stateChangeTime": None,
+    "prevStableState": "unknown",
+    "lastStateChange": datetime.now(timezone.utc),
     "landedSaved": False,
     "hasBeenAirborne": False
 })
@@ -145,39 +146,34 @@ def dumpDataToDatabase(aircraftId, track):
 def debounceState(aircraftId, newState):
     entry = aircraftTracks[aircraftId]
     now = datetime.now(timezone.utc)
-    
+
     if newState != entry["stableState"]:
         timeInCurrentState = now - entry["lastStateChange"]
         if timeInCurrentState >= timedelta(seconds=10):  # Debounce time: 10 seconds
             entry["stableState"] = newState
             entry["lastStateChange"] = now
-            return True  # State changed
-    elif newState == entry["stableState"]:
-        entry["lastStateChange"] = now  # reset timer if stable state
-    return False  # No effective change
+            return True  # Stable state changed
+    else:
+        entry["lastStateChange"] = now  # Reset timer if state is stable
+    return False
 
 def processAircraftState(aircraftId):
     aircraft = aircraftTracks[aircraftId]
     currentState = aircraft["state"]
 
-    debounceState(aircraftId, currentState)  # Stabilen Zustand updaten
-    stableState = aircraft["stableState"]
+    stableChanged = debounceState(aircraftId, currentState)  # update stable state
 
-    # Prüfe Übergang (nur wenn stabiler Zustand sich geändert hat)
-    if "prevStableState" not in aircraft:
-        aircraft["prevStableState"] = stableState
-
-    if stableState != aircraft["prevStableState"]:
+    if stableChanged:
         prevState = aircraft["prevStableState"]
-        aircraft["prevStableState"] = stableState
+        newState = aircraft["stableState"]
+        aircraft["prevStableState"] = newState
 
-        # Übergang airborne -> onGround
-        if prevState == "airborne" and stableState == "onGround":
+        if prevState == "airborne" and newState == "onGround":
             if aircraft["hasBeenAirborne"] and not aircraft["landedSaved"]:
-                dumpDataToDatabase(aircraftId)
+                dumpDataToDatabase(aircraftId, list(aircraft["track"]))
                 aircraft["landedSaved"] = True
-        # Übergang onGround -> airborne
-        elif prevState == "onGround" and stableState == "airborne":
+
+        elif prevState == "onGround" and newState == "airborne":
             aircraft["hasBeenAirborne"] = True
             aircraft["landedSaved"] = False
 
@@ -231,18 +227,18 @@ def runClient(host, port):
                               f"Relayed: {parsed['relayed']}")   
                         '''
 
-                        print("------------------------------------")
-                        for aircraftID, trackInfo in aircraftTracks.items():
-                            if trackInfo["track"]:
-                                lastPosition = trackInfo["track"][-1]
-                                print(f"✈ {aircraftId} | "
-                                    f"State: {trackInfo["state"]} | "
-                                    f"StableState: {trackInfo['stableState']} | "
-                                    f"Pos: {lastPosition['lat']:.5f}, {lastPosition['lon']:.5f} | "
-                                    f"Alt: {lastPosition['alt']}m | "
-                                    f"Spd: {lastPosition['speed']:.1f}m/s | ")
+                    print("------------------------------------")
+                    for aircraftID, trackInfo in aircraftTracks.items():
+                        if trackInfo["track"]:
+                            lastPosition = trackInfo["track"][-1]
+                            print(f"✈ {aircraftID} | "
+                                f"State: {trackInfo["state"]} | "
+                                f"StableState: {trackInfo['stableState']} | "
+                                f"Pos: {lastPosition['lat']:.5f}, {lastPosition['lon']:.5f} | "
+                                f"Alt: {lastPosition['alt']}m | "
+                                f"Spd: {lastPosition['speed']:.1f}m/s | ")
 
-                        print("------------------------------------")             
+                    print("------------------------------------")             
         except KeyboardInterrupt:
             print("\nClient terminated by user.")
 
