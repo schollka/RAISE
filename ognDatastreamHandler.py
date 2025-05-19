@@ -3,12 +3,18 @@ import re
 from collections import defaultdict, deque
 from datetime import datetime, timedelta, timezone
 
+#System parameters
 HOST = "127.0.0.1"  #localhost
 PORT = 50001        #ogn-decode TCP port
-BUFFER_SECONDS = 300  #5 minutes of data retention per aircraft
+BUFFER_SECONDS = 300  #5 minutes of data retention per aircraft in seconds
+
+#Landing detection parameters
+LANDING_LOOKBACK_SECONDS = 30 #Time window to consider data for landing detection [s]
+AIRPORT_ALTITUDE = 266 #Airport altitude [m]
+ALTITUDE_TOLERANCE = 15 #Tolerance for aicraft altitude when on ground [m]
 
 ognRegex = re.compile(
-    r"^(?P<recvTime>\d+\.\d+)sec:(?P<freq>\d+\.\d+)MHz: "
+    r"^(?P<recvTime>\d+\.\d+)sec:(?P<freq>\d{3}\.\d{3})MHz: "
     r"(?P<netCode>\d+):(?P<rfLevel>\d+):(?P<aircraft>[A-F0-9]+) (?P<time>\d+): "
     r"\[\s*(?P<lat>[+-]?\d+\.\d+),\s*(?P<lon>[+-]?\d+\.\d+)\]deg\s+"
     r"(?P<alt>\d+)m\s+(?P<vs>[+-]?\d+\.\d+)m/s\s+(?P<speed>\d+\.\d+)m/s\s+"
@@ -17,11 +23,17 @@ ognRegex = re.compile(
     r"(?P<stealth>[OS])\s+:(?P<noTrack>[0-9a-f]{3})__"
     r"(?P<freqOffset>[+-]?\d+\.\d+)kHz\s+(?P<snr>\d+\.\d+)/(?P<rssi>\d+\.\d+)dB/(?P<errCount>\d+)\s+"
     r"(?P<eStatus>\d+)e\s+(?P<distance>\d+\.\d+)km\s+(?P<bearing>\d+\.\d+)deg\s+(?P<elevAngle>[+-]?\d+\.\d+)deg"
+    r"(?:\s+(?P<flagged>!))?$"
 )
 #regex for complex ogn message
 # 0.585sec:868.174MHz: 1:2:DD9C20 142218: [ +48.95403,  +9.62327]deg  1401m  -3.2m/s  27.4m/s 204.5deg  +0.2deg/s __2 03x03m O :00f__-26.07kHz  4.0/15.0dB/2  0e    40.1km 097.3deg  +1.2deg + 
 
-aircraftTracks = defaultdict(lambda: deque(maxlen=1000))  #max 1000 data sets per aircraft
+#Initilize the RAM storage for the aircraft data, maximum 1000 datasets per aircraft
+aircraftTracks = defaultdict(lambda: {
+    "track": deque(maxlen=1000), #1000 datasets
+    "state": "unknown" #default aircraft status
+})
+
 
 def parseOgnLine(line):
     #get all the information from the OGN message
@@ -49,6 +61,7 @@ def parseOgnLine(line):
         d["bearing"] = float(d["bearing"])
         d["elevAngle"] = float(d["elevAngle"])
         d["timestamp"] = datetime.now(timezone.utc)
+        d["reducedDataConfidence"] = d.get("flagged") == "!"
     except Exception as e:
         print(f"OGN message parsing error: {e}")
         return None
@@ -100,7 +113,8 @@ def runClient(host, port):
                               f"Trk: {parsed['track']:03.1f}° | "
                               f"TrnRate: {parsed['turnRate']:03.1f}°/s | "
                               f"Dist: {parsed['distance']:02.1f}km | "
-                              f"Bearing: {parsed['bearing']:03.1f}°")
+                              f"Bearing: {parsed['bearing']:03.1f}° | "
+                              f"Reduced Confidence: {parsed['reducedDataConfidence']}")
         except KeyboardInterrupt:
             print("\nClient terminated by user.")
 
