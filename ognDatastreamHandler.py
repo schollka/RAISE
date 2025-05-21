@@ -69,10 +69,14 @@ class OgnClient:
             "state": "unknown", #current calculated aicraft state
             "stableState": "unknown", #as stable determined aicraft state
             "prevStableState": "unknown", #previos stable aicraft state
-            "lastStateChange": datetime.now(timezone.utc), #time of last state change
+            "lastStateChange": self.timeManager(), #time of last state change
             "landedSaved": False, #flag if track data was saved into database
             "hasBeenAirborne": False #flag if aircraft hast been airborne before
         })
+
+    def timeManager(self):
+        time = datetime.now(timezone.utc)
+        return time
 
     def parseOgnLine(self, line):
         #decode recieved message into seperate data blocks
@@ -101,7 +105,7 @@ class OgnClient:
             d["distance"] = float(d["distance"])
             d["bearing"] = float(d["bearing"])
             d["elevAngle"] = float(d["elevAngle"])
-            d["timestamp"] = datetime.now(timezone.utc)
+            d["timestamp"] = self.timeManager()
             d["reducedDataConfidence"] = d.get("flagged") == "!"
             d["relayed"] = bool(d.get("relayed"))
         except Exception as e:
@@ -128,7 +132,7 @@ class OgnClient:
         if not track:
             return "unknown" #no data available
 
-        now = datetime.now(timezone.utc) #get current time
+        now = self.timeManager() #get current time
         windowStart = now - timedelta(seconds=self.ON_GROUND_DETECTION_TIME_WINDOW) #compute the start time of the time frame
         recentPoints = [p for p in track if p["timestamp"] >= windowStart] #get all data points in this time frame
 
@@ -208,7 +212,7 @@ class OgnClient:
 
     def debounceState(self, aircraftId, newState):
         entry = self.aircraftTracks[aircraftId]
-        now = datetime.now(timezone.utc)
+        now = self.timeManager()
 
         if newState != entry["stableState"]:
             timeInCurrentState = now - entry["lastStateChange"]
@@ -249,6 +253,8 @@ class OgnClient:
                             self.aircraftTracks[aircraftId]["track"][-1]["state"] = currentState
                             self.processAircraftState(aircraftId)
                             self.removeOldTracks()
+
+                        # segregate data collection from status logic !!!!!!!!!!
 
                         # Terminal Output (optional, can be moved to a separate method)
                         print("------------------------------------")
