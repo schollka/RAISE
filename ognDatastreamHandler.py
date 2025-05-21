@@ -252,16 +252,17 @@ class OgnClient:
 
                         # Terminal Output (optional, can be moved to a separate method)
                         print("------------------------------------")
-                        for aircraftID, trackInfo in self.aircraftTracks.items():
+                        for aircraftId, trackInfo in self.aircraftTracks.items():
                             if trackInfo["track"]:
                                 lastPosition = trackInfo["track"][-1]
-                                print(f"✈ {aircraftID} | "
+                                print(f"✈ {aircraftId} | "
                                       f"State: {trackInfo['state']} | "
                                       f"StableState: {trackInfo['stableState']} | "
                                       f"Pos: {lastPosition['lat']:.5f}, {lastPosition['lon']:.5f} | "
                                       f"Alt: {lastPosition['alt']}m | "
                                       f"Spd: {lastPosition['speed']:.1f}m/s | ")
                         print("------------------------------------")
+                        
 
             except KeyboardInterrupt:
                 print("\nClient terminated by user.")
