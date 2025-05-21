@@ -4,7 +4,7 @@ from collections import defaultdict, deque
 from datetime import datetime, timedelta, timezone
 from statistics import mean
 from math import radians, sin, cos, sqrt, atan2
-
+import select
 
 class OgnClient:
     '''
@@ -58,6 +58,7 @@ class OgnClient:
     AIRPORT_LATITUDE = 49.002222
     AIRPORT_LONGITUDE = 9.086389
     ON_GROUND_POSITION_RADIUS = 750
+    MAXIMUM_MESSAGES_IN_BUFFER = 3
 
     def __init__(self, host="127.0.0.1", port=50001):
         self.host = host
@@ -233,42 +234,55 @@ class OgnClient:
             buffer = ""
             try:
                 while True:
-                    data = sock.recv(4096)
-                    if not data:
-                        print("Connection closed by server.")
-                        break
-                    buffer += data.decode(errors='ignore')
-                    while '\n' in buffer:
-                        line, buffer = buffer.split('\n', 1)
-                        line = line.strip()
-                        if not line or not line[0].isdigit():
-                            continue
-                        parsed = self.parseOgnLine(line)
-                        if parsed:
-                            aircraftId = parsed["aircraft"]
-                            self.aircraftTracks[aircraftId]["track"].append(parsed)
+                    ready, _, _ = select.select([sock], [], [], 0)
 
-                            currentState = self.detectAircraftState(self.aircraftTracks[aircraftId]["track"])
-                            self.aircraftTracks[aircraftId]["state"] = currentState
-                            self.aircraftTracks[aircraftId]["track"][-1]["state"] = currentState
-                            self.processAircraftState(aircraftId)
-                            self.removeOldTracks()
+                    if ready:
+                        data = sock.recv(4096)
+                        if not data:
+                            print("Connection closed by server.")
+                            break
+                        buffer += data.decode(errors='ignore')
 
-                        # segregate data collection from status logic !!!!!!!!!!
+                        processedCount = 0  #Counter for number of recieved messages
 
-                        # Terminal Output (optional, can be moved to a separate method)
-                        print("------------------------------------")
-                        for aircraftId, trackInfo in self.aircraftTracks.items():
-                            if trackInfo["track"]:
-                                lastPosition = trackInfo["track"][-1]
-                                print(f"✈ {aircraftId} | "
-                                      f"State: {trackInfo['state']} | "
-                                      f"StableState: {trackInfo['stableState']} | "
-                                      f"Pos: {lastPosition['lat']:.5f}, {lastPosition['lon']:.5f} | "
-                                      f"Alt: {lastPosition['alt']}m | "
-                                      f"Spd: {lastPosition['speed']:.1f}m/s | ")
-                        print("------------------------------------")
-                        
+                        while '\n' in buffer and processedCount < self.MAXIMUM_MESSAGES_IN_BUFFER:
+                            processedCount += 1
+
+                            line, buffer = buffer.split('\n', 1)
+                            line = line.strip()
+                            if not line or not line[0].isdigit():
+                                continue
+                            parsed = self.parseOgnLine(line)
+                            if parsed:
+                                aircraftId = parsed["aircraft"]
+                                self.aircraftTracks[aircraftId]["track"].append(parsed)
+
+                                currentState = self.detectAircraftState(self.aircraftTracks[aircraftId]["track"])
+                                self.aircraftTracks[aircraftId]["state"] = currentState
+                                self.aircraftTracks[aircraftId]["track"][-1]["state"] = currentState
+                                self.processAircraftState(aircraftId)
+                                self.removeOldTracks()
+
+                            # segregate data collection from status logic !!!!!!!!!!
+
+                            # Terminal Output (optional, can be moved to a separate method)
+                            print("------------------------------------")
+                            for aircraftId, trackInfo in self.aircraftTracks.items():
+                                if trackInfo["track"]:
+                                    lastPosition = trackInfo["track"][-1]
+                                    print(f"✈ {aircraftId} | "
+                                        f"State: {trackInfo['state']} | "
+                                        f"StableState: {trackInfo['stableState']} | "
+                                        f"Pos: {lastPosition['lat']:.5f}, {lastPosition['lon']:.5f} | "
+                                        f"Alt: {lastPosition['alt']}m | "
+                                        f"Spd: {lastPosition['speed']:.1f}m/s | ")
+                            print("------------------------------------")
+
+                        if '\n' in buffer:
+                            buffer = '' #delete remaining buffer contents
+
+                    else:
+                        self.removeOldTracks()   
 
             except KeyboardInterrupt:
                 print("\nClient terminated by user.")
