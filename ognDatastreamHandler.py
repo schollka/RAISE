@@ -19,6 +19,8 @@ class OgnClient:
     ON_GROUND_POSITION_RADIUS = 750
     MAXIMUM_MESSAGES_IN_BUFFER = 10
     DEBOUNCE_TIME = 10
+    AIRCRAFT_LOST_TIME = 30
+    AIRCRAFT_HEARBEAT_MISSING_TIME = 10
 
     def __init__(self, host="127.0.0.1", port=50001):
         self.host = host
@@ -224,27 +226,65 @@ class OgnClient:
         now = self.time.getSystemTime()
 
         if newState != entry["stableState"]:
-            timeInCurrentState = now - entry["lastStateChange"]
-            if timeInCurrentState >= timedelta(seconds=self.DEBOUNCE_TIME):
+            if entry["stableState"] == "aircraftLost" or entry["stableState"] == "heartbeatMissing":
                 entry["stableState"] = newState
                 entry["lastStateChange"] = now
                 return True
+            else:
+                timeInCurrentState = now - entry["lastStateChange"]
+                if timeInCurrentState >= timedelta(seconds=self.DEBOUNCE_TIME):
+                    entry["stableState"] = newState
+                    entry["lastStateChange"] = now
+                    return True
         else:
             entry["lastStateChange"] = now
         return False
+    
+    def connectToOgnServer(self, sock):
+        print(f"Connecting to {self.host}:{self.port}...")
+        sock.connect((self.host, self.port))
+        print("Connected. Waiting for OGN data...\n")
+
+    def processMessageLine(self, line):
+        parsed = self.parseOgnLine(line)
+        if not parsed:
+            return
+
+        aircraftId = parsed["aircraft"]
+        self.aircraftTracks[aircraftId]["track"].append(parsed)
+
+        currentState = self.detectAircraftState(self.aircraftTracks[aircraftId]["track"])
+        self.aircraftTracks[aircraftId]["state"] = currentState
+        self.aircraftTracks[aircraftId]["track"][-1]["state"] = currentState
+        self.processAircraftState(aircraftId)
+
+    def monitorSignalReception(self):
+        now = self.time.getSystemTime() #current time
+        for aircraftId, data in list(self.aircraftTracks.items()):
+            cutoff = now - timedelta(seconds=self.AIRCRAFT_HEARBEAT_MISSING_TIME) #cutoff time for missing heartbeat
+            track = data["track"]
+            if track[-1]["timestamp"] < cutoff:
+                cutoff = now - timedelta(seconds=self.AIRCRAFT_LOST_TIME) #cutoff time for lost aircraft
+                if track[-1]["timestamp"] < cutoff:
+                    state = "aircraftLost"
+                else:
+                    state = "heartbeatMissing"
+                
+                data["state"] = state
+                _ = self.debounceState(aircraftId, state)
+
     
     def systemLoop(self):
         #Loop that executes while no new message is processed => maintanance
         self.time.setSystemTime() #get system time
         self.removeOldTracks() #remove old track data
+        self.monitorSignalReception() #monitor the signal reception from all aircrafts
 
     def runClient(self):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-            print(f"Connecting to {self.host}:{self.port}...")
-            sock.connect((self.host, self.port))
-            print("Connected. Waiting for OGN data...\n")
-
+            self.connectToOgnServer(sock)
             buffer = ""
+            
             try:
                 while True:
                     ready, _, _ = select.select([sock], [], [], 0)
@@ -254,8 +294,8 @@ class OgnClient:
                         if not data:
                             print("Connection closed by server.")
                             break
-                        buffer += data.decode(errors='ignore')
 
+                        buffer += data.decode(errors='ignore')
                         processedCount = 0  #Counter for number of recieved messages
 
                         while '\n' in buffer and processedCount < self.MAXIMUM_MESSAGES_IN_BUFFER:
@@ -266,18 +306,9 @@ class OgnClient:
                             line = line.strip()
                             if not line or not line[0].isdigit():
                                 continue
-                            parsed = self.parseOgnLine(line)
-                            if parsed:
-                                aircraftId = parsed["aircraft"]
-                                self.aircraftTracks[aircraftId]["track"].append(parsed)
-
-                                currentState = self.detectAircraftState(self.aircraftTracks[aircraftId]["track"])
-                                self.aircraftTracks[aircraftId]["state"] = currentState
-                                self.aircraftTracks[aircraftId]["track"][-1]["state"] = currentState
-                                self.processAircraftState(aircraftId)
-                                self.removeOldTracks()
-
-                            # segregate data collection from status logic !!!!!!!!!!
+                            
+                            self.processMessageLine(line)
+                            self.removeOldTracks()
 
                             # Terminal Output (optional, can be moved to a separate method)
                             print("------------------------------------")
@@ -289,7 +320,8 @@ class OgnClient:
                                         f"StableState: {trackInfo['stableState']} | "
                                         f"Pos: {lastPosition['lat']:.5f}, {lastPosition['lon']:.5f} | "
                                         f"Alt: {lastPosition['alt']}m | "
-                                        f"Spd: {lastPosition['speed']:.1f}m/s | ")
+                                        f"Spd: {lastPosition['speed']:.1f}m/s | "
+                                        f"Last Package: {(self.time.getSystemTime() - lastPosition['timestamp']).total_seconds():.0f}s")
                             print("------------------------------------")
 
                         if '\n' in buffer:
