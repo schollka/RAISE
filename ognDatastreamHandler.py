@@ -45,6 +45,9 @@ class OgnClient:
         def setSystemTime(self):
             self.time = datetime.now(timezone.utc)
 
+        def setSystemTimeAsynchronousMode(self, time):
+            self.time = time
+
         def getSystemTime(self):
             return self.time
 
