@@ -7,6 +7,45 @@ from math import radians, sin, cos, sqrt, atan2
 import select
 
 class OgnClient:
+    # System parameters
+    BUFFER_SECONDS = 300
+    LANDING_LOOKBACK_SECONDS = 30
+    AIRPORT_ALTITUDE = 266
+    ALTITUDE_TOLERANCE = 15
+    MAX_ON_GROUND_SPEED = 20 / 3.6
+    ON_GROUND_DETECTION_TIME_WINDOW = 30
+    AIRPORT_LATITUDE = 49.002222
+    AIRPORT_LONGITUDE = 9.086389
+    ON_GROUND_POSITION_RADIUS = 750
+    MAXIMUM_MESSAGES_IN_BUFFER = 10
+    DEBOUNCE_TIME = 10
+
+    def __init__(self, host="127.0.0.1", port=50001):
+        self.host = host
+        self.port = port
+        self.time = self.TimeManager()
+
+        #Initialize aircraft tracks dictionary
+        self.aircraftTracks = defaultdict(lambda: {
+            "track": deque(maxlen=1000), #OGN message data
+            "state": "unknown", #current calculated aicraft state
+            "stableState": "unknown", #as stable determined aicraft state
+            "prevStableState": "unknown", #previos stable aicraft state
+            "lastStateChange": self.time.getSystemTime(), #time of last state change
+            "landedSaved": False, #flag if track data was saved into database
+            "hasBeenAirborne": False #flag if aircraft hast been airborne before
+        })
+
+    class TimeManager:
+        def __init__(self):
+            self.time = datetime.now(timezone.utc)
+        
+        def setSystemTime(self):
+            self.time = datetime.now(timezone.utc)
+
+        def getSystemTime(self):
+            return self.time
+
     '''
     Regex expression for OGN message decode
     Example message: 0.936sec:868.370MHz: 1:2:DD9A70 142236: [ +49.00106,  +9.07859]deg   268m  +0.0m/s   0.0m/s 180.0deg  +0.0deg/s __1 04x04m O :01f__-30.02kHz 42.8/52.5dB/0  0e 0.1km 285.8deg -4.6deg + !
@@ -47,44 +86,6 @@ class OgnClient:
         r"(?P<eStatus>\d+)e\s+(?P<distance>\d+\.\d+)km\s+(?P<bearing>\d+\.\d+)deg\s+(?P<elevAngle>[+-]?\d+\.\d+)deg"
         r"(?:\s*(?P<relayed>\+))?\s*$"
     )
-
-    # System parameters
-    BUFFER_SECONDS = 300
-    LANDING_LOOKBACK_SECONDS = 30
-    AIRPORT_ALTITUDE = 266
-    ALTITUDE_TOLERANCE = 15
-    MAX_ON_GROUND_SPEED = 20 / 3.6
-    ON_GROUND_DETECTION_TIME_WINDOW = 30
-    AIRPORT_LATITUDE = 49.002222
-    AIRPORT_LONGITUDE = 9.086389
-    ON_GROUND_POSITION_RADIUS = 750
-    MAXIMUM_MESSAGES_IN_BUFFER = 3
-
-    def __init__(self, host="127.0.0.1", port=50001):
-        self.host = host
-        self.port = port
-        self.time = self.TimeManager()
-
-        #Initialize aircraft tracks dictionary
-        self.aircraftTracks = defaultdict(lambda: {
-            "track": deque(maxlen=1000), #OGN message data
-            "state": "unknown", #current calculated aicraft state
-            "stableState": "unknown", #as stable determined aicraft state
-            "prevStableState": "unknown", #previos stable aicraft state
-            "lastStateChange": self.time.getSystemTime(), #time of last state change
-            "landedSaved": False, #flag if track data was saved into database
-            "hasBeenAirborne": False #flag if aircraft hast been airborne before
-        })
-
-    class TimeManager:
-        def __init__(self):
-            self.time = datetime.now(timezone.utc)
-        
-        def setSystemTime(self):
-            self.time = datetime.now(timezone.utc)
-
-        def getSystemTime(self):
-            return self.time
 
     def parseOgnLine(self, line):
         #decode recieved message into seperate data blocks
@@ -214,7 +215,7 @@ class OgnClient:
                     self.dumpDataToDatabase(aircraftId, list(aircraft["track"]))
                     aircraft["landedSaved"] = True
 
-            elif prevState == "onGround" and newState == "airborne":
+            elif prevState != "airborne"  and newState == "airborne":
                 aircraft["hasBeenAirborne"] = True
                 aircraft["landedSaved"] = False
 
@@ -224,13 +225,18 @@ class OgnClient:
 
         if newState != entry["stableState"]:
             timeInCurrentState = now - entry["lastStateChange"]
-            if timeInCurrentState >= timedelta(seconds=10):
+            if timeInCurrentState >= timedelta(seconds=self.DEBOUNCE_TIME):
                 entry["stableState"] = newState
                 entry["lastStateChange"] = now
                 return True
         else:
             entry["lastStateChange"] = now
         return False
+    
+    def systemLoop(self):
+        #Loop that executes while no new message is processed => maintanance
+        self.time.setSystemTime() #get system time
+        self.removeOldTracks() #remove old track data
 
     def runClient(self):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
@@ -290,8 +296,9 @@ class OgnClient:
                             buffer = '' #delete remaining buffer contents
 
                     else:
-                        self.time.setSystemTime()
-                        self.removeOldTracks()   
+                        #this executes, when no new messages are processed
+                        self.systemLoop() #call defined maintanance functions
+  
 
             except KeyboardInterrupt:
                 print("\nClient terminated by user.")
