@@ -244,7 +244,9 @@ class OgnClient:
                             aircraftId = parsed["aircraft"]
                             self.aircraftTracks[aircraftId]["track"].append(parsed)
 
-                            self.aircraftTracks[aircraftId]["state"] = self.detectAircraftState(self.aircraftTracks[aircraftId]["track"])
+                            currentState = self.detectAircraftState(self.aircraftTracks[aircraftId]["track"])
+                            self.aircraftTracks[aircraftId]["state"] = currentState
+                            self.aircraftTracks[aircraftId]["track"][-1]["state"] = currentState
                             self.processAircraftState(aircraftId)
                             self.removeOldTracks()
 
