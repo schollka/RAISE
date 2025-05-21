@@ -63,6 +63,7 @@ class OgnClient:
     def __init__(self, host="127.0.0.1", port=50001):
         self.host = host
         self.port = port
+        self.time = self.TimeManager()
 
         #Initialize aircraft tracks dictionary
         self.aircraftTracks = defaultdict(lambda: {
@@ -70,14 +71,20 @@ class OgnClient:
             "state": "unknown", #current calculated aicraft state
             "stableState": "unknown", #as stable determined aicraft state
             "prevStableState": "unknown", #previos stable aicraft state
-            "lastStateChange": self.timeManager(), #time of last state change
+            "lastStateChange": self.time.getSystemTime(), #time of last state change
             "landedSaved": False, #flag if track data was saved into database
             "hasBeenAirborne": False #flag if aircraft hast been airborne before
         })
 
-    def timeManager(self):
-        time = datetime.now(timezone.utc)
-        return time
+    class TimeManager:
+        def __init__(self):
+            self.time = datetime.now(timezone.utc)
+        
+        def setSystemTime(self):
+            self.time = datetime.now(timezone.utc)
+
+        def getSystemTime(self):
+            return self.time
 
     def parseOgnLine(self, line):
         #decode recieved message into seperate data blocks
@@ -106,7 +113,7 @@ class OgnClient:
             d["distance"] = float(d["distance"])
             d["bearing"] = float(d["bearing"])
             d["elevAngle"] = float(d["elevAngle"])
-            d["timestamp"] = self.timeManager()
+            d["timestamp"] = self.time.getSystemTime()
             d["reducedDataConfidence"] = d.get("flagged") == "!"
             d["relayed"] = bool(d.get("relayed"))
         except Exception as e:
@@ -133,7 +140,7 @@ class OgnClient:
         if not track:
             return "unknown" #no data available
 
-        now = self.timeManager() #get current time
+        now = self.time.getSystemTime() #get current time
         windowStart = now - timedelta(seconds=self.ON_GROUND_DETECTION_TIME_WINDOW) #compute the start time of the time frame
         recentPoints = [p for p in track if p["timestamp"] >= windowStart] #get all data points in this time frame
 
@@ -172,7 +179,7 @@ class OgnClient:
         The additional data is not necessary for the landing detection.
         Free up valuable RAM.
         '''
-        now = datetime.now(timezone.utc) #current time
+        now = self.time.getSystemTime() #current time
         cutoff = now - timedelta(seconds=self.BUFFER_SECONDS) #cutoff time, all older message will be deleted
         for aircraftId, data in list(self.aircraftTracks.items()):
             track = data["track"]
@@ -213,7 +220,7 @@ class OgnClient:
 
     def debounceState(self, aircraftId, newState):
         entry = self.aircraftTracks[aircraftId]
-        now = self.timeManager()
+        now = self.time.getSystemTime()
 
         if newState != entry["stableState"]:
             timeInCurrentState = now - entry["lastStateChange"]
@@ -247,6 +254,7 @@ class OgnClient:
 
                         while '\n' in buffer and processedCount < self.MAXIMUM_MESSAGES_IN_BUFFER:
                             processedCount += 1
+                            self.time.setSystemTime()
 
                             line, buffer = buffer.split('\n', 1)
                             line = line.strip()
@@ -282,6 +290,7 @@ class OgnClient:
                             buffer = '' #delete remaining buffer contents
 
                     else:
+                        self.time.setSystemTime()
                         self.removeOldTracks()   
 
             except KeyboardInterrupt:
