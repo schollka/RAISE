@@ -208,12 +208,11 @@ class OgnClient:
         aircraft = self.aircraftTracks[aircraftId] #get the aircraft
         currentState = aircraft["state"] #get the newest computed state
 
-        stableChanged = self.debounceState(aircraftId, currentState) #
+        stableChanged = self.debounceState(aircraftId, currentState) #debounce the aicrafts state
 
         if stableChanged:
-            prevState = aircraft["prevStableState"]
-            newState = aircraft["stableState"]
-            aircraft["prevStableState"] = newState
+            prevState = aircraft["prevStableState"] #get the previos aircraft state
+            newState = aircraft["stableState"] #get the newly determined state
 
             if prevState == "airborne" and newState == "onGround":
                 if aircraft["hasBeenAirborne"] and not aircraft["landedSaved"]:
@@ -230,12 +229,14 @@ class OgnClient:
 
         if newState != entry["stableState"]:
             if entry["stableState"] == "aircraftLost" or entry["stableState"] == "heartbeatMissing":
+                entry["prevStableState"] = entry["stableState"]
                 entry["stableState"] = newState
                 entry["lastStateChange"] = now
                 return True
             else:
                 timeInCurrentState = now - entry["lastStateChange"]
                 if timeInCurrentState >= timedelta(seconds=self.DEBOUNCE_TIME):
+                    entry["prevStableState"] = entry["stableState"]
                     entry["stableState"] = newState
                     entry["lastStateChange"] = now
                     return True
@@ -274,7 +275,12 @@ class OgnClient:
                     state = "heartbeatMissing"
                 
                 data["state"] = state
-                _ = self.debounceState(aircraftId, state)
+                stableChanges = self.debounceState(aircraftId, state)
+
+                if stableChanges:
+                    prevState = data["prevStableState"] #get the previos aircraft state
+                    newState = data["stableState"] #get the newly determined state
+                    data["prevStableState"] = newState #store the previosStable state
 
     
     def systemLoop(self):
@@ -321,6 +327,7 @@ class OgnClient:
                                     print(f"✈ {aircraftId} | "
                                         f"State: {trackInfo['state']} | "
                                         f"StableState: {trackInfo['stableState']} | "
+                                        f"PrevStableState: {trackInfo['prevStableState']} | "
                                         f"Pos: {lastPosition['lat']:.5f}, {lastPosition['lon']:.5f} | "
                                         f"Alt: {lastPosition['alt']}m | "
                                         f"Spd: {lastPosition['speed']:.1f}m/s | "
