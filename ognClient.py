@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone, time
 from statistics import mean
 from math import radians, sin, cos, sqrt, atan2
 import select
+from auxillaryFunctions import safeFloat, safeInt
 
 class OgnClient:
     # System parameters
@@ -13,7 +14,7 @@ class OgnClient:
     AIRPORT_ALTITUDE = 266
     ALTITUDE_TOLERANCE = 15
     MAX_ON_GROUND_SPEED = 20 / 3.6
-    ON_GROUND_DETECTION_TIME_WINDOW = 30
+    STATE_DETECTION_TIME_WINDOW = 20
     AIRPORT_LATITUDE = 49.002222
     AIRPORT_LONGITUDE = 9.086389
     ON_GROUND_POSITION_RADIUS = 750
@@ -22,6 +23,7 @@ class OgnClient:
     AIRCRAFT_LOST_TIME = 30
     AIRCRAFT_HEARBEAT_MISSING_TIME = 10
     REALTIME_MODE = False
+    NUMBER_OF_DATA_POINTS_FOR_STATE_ESTIMATION = 2
 
     def __init__(self, host="127.0.0.1", port=50001):
         self.host = host
@@ -131,7 +133,7 @@ class OgnClient:
             d["distance"] = float(d["distance"])
             d["bearing"] = float(d["bearing"])
             d["elevAngle"] = float(d["elevAngle"])
-            if self.REALTIME_MODE is False:
+            if not self.REALTIME_MODE:
                 self.time.setSystemTimeAsynchronousMode(asyntime=d["time"]) #create a timestamp based on the time in the recieved message
             d["timestamp"] = self.time.getSystemTime()
             d["reducedDataConfidence"] = d.get("flagged") == "!"
@@ -161,10 +163,10 @@ class OgnClient:
             return "unknown" #no data available
 
         now = self.time.getSystemTime() #get current time
-        windowStart = now - timedelta(seconds=self.ON_GROUND_DETECTION_TIME_WINDOW) #compute the start time of the time frame
+        windowStart = now - timedelta(seconds=self.STATE_DETECTION_TIME_WINDOW) #compute the start time of the time frame
         recentPoints = [p for p in track if p["timestamp"] >= windowStart] #get all data points in this time frame
 
-        if len(recentPoints) < 5:
+        if len(recentPoints) < self.NUMBER_OF_DATA_POINTS_FOR_STATE_ESTIMATION:
             return "unknown" #not enough data points available
 
         avgAlt = mean(p["alt"] for p in recentPoints) #compute mean altitude in the time frame
@@ -270,6 +272,46 @@ class OgnClient:
 
         aircraftId = parsed["aircraft"]
         self.aircraftTracks[aircraftId]["track"].append(parsed)
+
+        currentState = self.detectAircraftState(self.aircraftTracks[aircraftId]["track"])
+        self.aircraftTracks[aircraftId]["state"] = currentState
+        self.aircraftTracks[aircraftId]["track"][-1]["state"] = currentState
+        self.processAircraftState(aircraftId)
+        
+    def processMessageDict(self, data):
+        try:
+            # Sicher konvertieren
+            data["recvTime"] = safeFloat(data.get("recvTime"))
+            data["freq"] = safeFloat(data.get("frequency"))
+            data["time"] = safeInt(data.get("ognTime"))
+            data["lat"] = safeFloat(data["lat"])
+            data["lon"] = safeFloat(data["lon"])
+            data["alt"] = safeInt(data["altitude"])
+            data["vs"] = safeFloat(data["climbRate"])
+            data["speed"] = safeFloat(data["groundSpeed"])
+            data["track"] = safeFloat(data["track"])
+            data["turnRate"] = safeFloat(data["turnRate"])
+            data["snr"] = safeFloat(data.get("snr"))
+            data["rssi"] = safeFloat(data.get("rssi"))
+            data["errCount"] = safeInt(data.get("errCount"))
+            data["eStatus"] = safeInt(data.get("eStatus"))
+            data["distance"] = safeFloat(data.get("distance"))
+            data["bearing"] = safeFloat(data.get("bearing"))
+            data["elevAngle"] = safeFloat(data.get("elevAngle"))
+            data["relayed"] = bool(data.get("relayed", False))
+
+            if not self.REALTIME_MODE:
+                self.time.setSystemTimeAsynchronousMode(asyntime=data["time"])
+            data["timestamp"] = self.time.getSystemTime()
+
+            data["reducedDataConfidence"] = data.get("flagged") == "!"
+
+        except Exception as e:
+            print(f"Fehler beim Verarbeiten der OGN-Daten: {e}")
+            return
+
+        aircraftId = data["aircraft"]
+        self.aircraftTracks[aircraftId]["track"].append(data)
 
         currentState = self.detectAircraftState(self.aircraftTracks[aircraftId]["track"])
         self.aircraftTracks[aircraftId]["state"] = currentState
