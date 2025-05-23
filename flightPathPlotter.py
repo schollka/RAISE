@@ -24,6 +24,8 @@ class FlightPlotter:
         self.ax.set_ylabel("Latitude")
         self.ax.set_title("Live Flight Tracks")
         self.ax.grid(True)
+        self.ax.set_aspect('equal', adjustable='datalim')  # ⬅️ This line sets equal scaling
+
 
         # Flughafenmarker zeichnen
         self.ax.plot(self.airportLon, self.airportLat, marker='x', color='black', markersize=12, mew=3, label='Airport')
@@ -57,7 +59,14 @@ class FlightPlotter:
             if aircraftId not in self.aircraftColors:
                 self.aircraftColors[aircraftId] = next(self.colorCycle)
 
+            # Plot full track
             self.ax.plot(lons, lats, label=aircraftId, color=self.aircraftColors[aircraftId])
+
+            # Plot last known position as black rectangle
+            lastLat = lats[-1]
+            lastLon = lons[-1]
+            self.ax.plot(lastLon, lastLat, marker='s', color='black', markersize=5)
+
 
         self.ax.legend(loc='upper right')
 
