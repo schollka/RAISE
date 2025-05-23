@@ -1,7 +1,7 @@
 import socket
 import re
 from collections import defaultdict, deque
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, time
 from statistics import mean
 from math import radians, sin, cos, sqrt, atan2
 import select
@@ -21,6 +21,7 @@ class OgnClient:
     DEBOUNCE_TIME = 10
     AIRCRAFT_LOST_TIME = 30
     AIRCRAFT_HEARBEAT_MISSING_TIME = 10
+    REALTIME_MODE = False
 
     def __init__(self, host="127.0.0.1", port=50001):
         self.host = host
@@ -45,8 +46,19 @@ class OgnClient:
         def setSystemTime(self):
             self.time = datetime.now(timezone.utc)
 
-        def setSystemTimeAsynchronousMode(self, time):
-            self.time = time
+        def setSystemTimeAsynchronousMode(self, asyntime: int, referenceDate: datetime = None):
+            #this functions demodulates a timestamp in the format HHMMSS into a vaild datetime system time
+            hh = asyntime // 10000
+            mm = (asyntime // 100) % 100
+            ss = asyntime % 100
+
+            #Specify the date
+            if referenceDate is None:
+                referenceDate = datetime.now(timezone.utc)
+
+            #Combine date and time
+            asynSysTime = datetime.combine(referenceDate.date(), time(hh, mm, ss), tzinfo=timezone.utc)
+            self.time = asynSysTime #set asynchrone system time
 
         def getSystemTime(self):
             return self.time
@@ -119,6 +131,8 @@ class OgnClient:
             d["distance"] = float(d["distance"])
             d["bearing"] = float(d["bearing"])
             d["elevAngle"] = float(d["elevAngle"])
+            if self.REALTIME_MODE is False:
+                self.time.setSystemTimeAsynchronousMode(asyntime=d["time"]) #create a timestamp based on the time in the recieved message
             d["timestamp"] = self.time.getSystemTime()
             d["reducedDataConfidence"] = d.get("flagged") == "!"
             d["relayed"] = bool(d.get("relayed"))
@@ -285,7 +299,8 @@ class OgnClient:
     
     def systemLoop(self):
         #Loop that executes while no new message is processed => maintanance
-        self.time.setSystemTime() #get system time
+        if self.REALTIME_MODE:
+            self.time.setSystemTime() #set system time
         self.removeOldTracks() #remove old track data
         self.monitorSignalReception() #monitor the signal reception from all aircrafts
 
@@ -309,7 +324,8 @@ class OgnClient:
 
                         while '\n' in buffer and processedCount < self.MAXIMUM_MESSAGES_IN_BUFFER:
                             processedCount += 1
-                            self.time.setSystemTime()
+                            if self.REALTIME_MODE:
+                                self.time.setSystemTime() #set system time
 
                             line, buffer = buffer.split('\n', 1)
                             line = line.strip()
@@ -331,7 +347,9 @@ class OgnClient:
                                         f"Pos: {lastPosition['lat']:.5f}, {lastPosition['lon']:.5f} | "
                                         f"Alt: {lastPosition['alt']}m | "
                                         f"Spd: {lastPosition['speed']:.1f}m/s | "
-                                        f"Last Package: {(self.time.getSystemTime() - lastPosition['timestamp']).total_seconds():.0f}s")
+                                        f"Last Package: {(self.time.getSystemTime() - lastPosition['timestamp']).total_seconds():.0f}s | "
+                                        f"OGNtime: {(lastPosition['time'])} | "
+                                        f"SysTime: {(lastPosition['timestamp'])}")
                             print("------------------------------------")
 
                         if '\n' in buffer:
