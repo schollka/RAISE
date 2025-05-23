@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone, time
 from statistics import mean
 from math import radians, sin, cos, sqrt, atan2
 import select
+from flightPathPlotter import FlightPlotter
 
 class OgnClient:
     # System parameters
@@ -305,6 +306,13 @@ class OgnClient:
         self.monitorSignalReception() #monitor the signal reception from all aircrafts
 
     def runClient(self):
+        flightPlot = FlightPlotter(
+            airportLat=self.AIRPORT_LATITUDE,
+            airportLon=self.AIRPORT_LONGITUDE,
+            airportRadius_km=self.ON_GROUND_POSITION_RADIUS / 1000.0
+        )
+        flightPlot.show()
+
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
             self.connectToOgnServer(sock)
             buffer = ""
@@ -351,6 +359,10 @@ class OgnClient:
                                         f"OGNtime: {(lastPosition['time'])} | "
                                         f"SysTime: {(lastPosition['timestamp'])}")
                             print("------------------------------------")
+
+                        flightPlot.updatePlot(self.aircraftTracks)
+                        flightPlot.fig.canvas.draw()
+                        flightPlot.fig.canvas.flush_events()
 
                         if '\n' in buffer:
                             buffer = '' #delete remaining buffer contents
