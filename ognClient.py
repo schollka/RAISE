@@ -32,7 +32,7 @@ class OgnClient:
 
         #Initialize aircraft tracks dictionary
         self.aircraftTracks = defaultdict(lambda: {
-            "track": deque(maxlen=1000), #OGN message data
+            "track": deque(maxlen=100000), #OGN message data
             "state": "unknown", #current calculated aicraft state
             "stableState": "unknown", #as stable determined aicraft state
             "prevStableState": "unknown", #previos stable aicraft state
