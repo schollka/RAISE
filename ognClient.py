@@ -34,12 +34,19 @@ class OgnClient:
         #Initialize aircraft tracks dictionary
         self.aircraftTracks = defaultdict(lambda: {
             "track": deque(maxlen=100000), #OGN message data
-            "state": "unknown", #current calculated aicraft state
+
+            #aircraft states
+            "flightState": "unknown", #current calculated aicraft state
             "stableState": "unknown", #as stable determined aicraft state
             "prevStableState": "unknown", #previos stable aicraft state
             "lastStateChange": self.time.getSystemTime(), #time of last state change
+
+            #meta data
             "landedSaved": False, #flag if track data was saved into database
-            "hasBeenAirborne": False #flag if aircraft hast been airborne before
+            "hasBeenAirborne": False, #flag if aircraft hast been airborne before
+
+            #signal states
+            "receptionState": "normal" #state of the signal reception
         })
 
     class TimeManager:
@@ -324,23 +331,25 @@ class OgnClient:
     def monitorSignalReception(self):
         now = self.time.getSystemTime() #current time
         for aircraftId, data in list(self.aircraftTracks.items()):
-            cutoff = now - timedelta(seconds=self.AIRCRAFT_HEARBEAT_MISSING_TIME) #cutoff time for missing heartbeat
             track = data["track"]
-            if track[-1]["timestamp"] < cutoff:
-                cutoff = now - timedelta(seconds=self.AIRCRAFT_LOST_TIME) #cutoff time for lost aircraft
-                if track[-1]["timestamp"] < cutoff:
-                    state = "aircraftLost"
-                else:
-                    state = "heartbeatMissing"
-                
-                data["state"] = state
-                stableChanges = self.debounceState(aircraftId, state)
+            if not track:
+                continue #now data available
 
-                if stableChanges:
-                    prevState = data["prevStableState"] #get the previos aircraft state
-                    newState = data["stableState"] #get the newly determined state
-                    data["prevStableState"] = newState #store the previosStable state
+            lastTimestamp = track[-1]['timestamp']
 
+            heartbeatCutoff = now - timedelta(seconds=self.AIRCRAFT_HEARBEAT_MISSING_TIME) #cutoff time for missing heartbeat
+            lostCutoff = now - timedelta(seconds=self.AIRCRAFT_LOST_TIME) #cutoff time for lost aircraft
+
+            if lastTimestamp < lostCutoff:
+                newReceptionState = "aircraftLost"
+            elif lastTimestamp < heartbeatCutoff:
+                newReceptionState = "heartbeatMissing"
+            else:
+                newReceptionState = "normal"
+
+            if newReceptionState != data.get("receptionState", "normal"):
+                prevState = data["receptionState"]
+                data["receptionState"] = newReceptionState
     
     def systemLoop(self):
         #Loop that executes while no new message is processed => maintanance
