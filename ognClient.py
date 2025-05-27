@@ -6,7 +6,7 @@ from statistics import mean
 from math import radians, sin, cos, sqrt, atan2
 import select
 from auxillaryFunctions import safeFloat, safeInt
-from databankHandler import saveTrackData
+from databankHandler import saveTrack
 
 class OgnClient:
     # System parameters
@@ -211,10 +211,10 @@ class OgnClient:
             if not track:
                 del self.aircraftTracks[aircraftId] #delete aicraft entry when no data points are left
 
-    def dumpDataToDatabase(self, aircraftId):
+    def dumpDataToDatabase(self, aircraftId, track):
         dbPath = "flightData.db"
-        saveTrackData(self.aircraftTracks[aircraftId], dbPath)
-        print(f"\n[DB] Dumping {len(self.aircraftTracks[aircraftId])} points for {aircraftId} to database.")
+        saveTrack(track, dbPath)
+        print(f"\n[DB] Dumping {len(track)} points for {aircraftId} to database.")
         # TODO: Replace with actual DB logic
 
     def processAircraftState(self, aircraftId):
@@ -235,7 +235,7 @@ class OgnClient:
 
             if prevState == "airborne" and newState == "onGround":
                 if aircraft["hasBeenAirborne"] and not aircraft["landedSaved"]:
-                    self.dumpDataToDatabase(aircraftId)
+                    self.dumpDataToDatabase(aircraftId, self.aircraftTracks[aircraftId]["track"])
                     aircraft["landedSaved"] = True
 
             elif prevState != "airborne"  and newState == "airborne":
