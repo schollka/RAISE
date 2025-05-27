@@ -1,4 +1,5 @@
 from ognClient import OgnClient
+from createTimeSeriesPlot import plotFlightProfileFromTrack
 import pickle
 
 client = OgnClient()
@@ -10,4 +11,4 @@ with open('DD9B60_2025-04-27.pkl', 'rb') as f:
 for data in flightData:
     client.processMessageDict(data)   
 
-dbPath = "flightData.db"
+plotFlightProfileFromTrack(client.aircraftTracks['DD9B60']['track'])

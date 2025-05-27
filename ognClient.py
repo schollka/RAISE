@@ -5,8 +5,8 @@ from datetime import datetime, timedelta, timezone, time
 from statistics import mean
 from math import radians, sin, cos, sqrt, atan2
 import select
-from .auxillaryFunctions import safeFloat, safeInt
-from .databankHandler import saveTrack
+from auxillaryFunctions import safeFloat, safeInt
+from databankHandler import saveTrack
 
 class OgnClient:
     # System parameters
@@ -148,6 +148,7 @@ class OgnClient:
             d["timestamp"] = self.time.getSystemTime()
             d["reducedDataConfidence"] = d.get("flagged") == "!"
             d["relayed"] = bool(d.get("relayed"))
+            d["distanceToAirport"] = self.distanceToAirport(d["lat"], d["lon"])
         except Exception as e:
             print(f"OGN message parsing error: {e}")
             return None
@@ -166,6 +167,10 @@ class OgnClient:
         c = 2 * atan2(sqrt(a), sqrt(1 - a))
         distance = R * c #compute distance
         return distance
+    
+    def distanceToAirport(self, lat, lon):
+        distanceToAirport = self.haversineDistance(lat, lon, self.AIRPORT_LATITUDE, self.AIRPORT_LONGITUDE)
+        return distanceToAirport
     
     def connectToOgnServer(self, sock):
         print(f"Connecting to {self.host}:{self.port}...")
@@ -187,12 +192,12 @@ class OgnClient:
         avgSpeed = mean(p["speed"] for p in recentPoints)
         avgLat = mean(p["lat"] for p in recentPoints)
         avgLon = mean(p["lon"] for p in recentPoints)
-        distanceToAirport = self.haversineDistance(avgLat, avgLon, self.AIRPORT_LATITUDE, self.AIRPORT_LONGITUDE)
+        avgDist = mean(p["distanceToAirport"] for p in recentPoints)
 
         minAltThres = self.AIRPORT_ALTITUDE - self.ALTITUDE_TOLERANCE
         maxAltThres = self.AIRPORT_ALTITUDE + self.ALTITUDE_TOLERANCE
 
-        if minAltThres <= avgAlt <= maxAltThres and avgSpeed <= self.MAX_ON_GROUND_SPEED and distanceToAirport <= self.ON_GROUND_POSITION_RADIUS:
+        if minAltThres <= avgAlt <= maxAltThres and avgSpeed <= self.MAX_ON_GROUND_SPEED: # and distanceToAirport <= self.ON_GROUND_POSITION_RADIUS
             return "onGround"
         elif avgSpeed > self.MAX_ON_GROUND_SPEED:
             return "airborne"
@@ -238,11 +243,20 @@ class OgnClient:
                 if newState == "airborne":
                     entry["lastAirborneTime"] = now
 
+                if entry["track"]:
+                    entry["track"][-1]["stableFlightState"] = newState
+            else:
+                if entry["track"]:
+                    entry["track"][-1]["stableFlightState"] = entry["stableState"]
+
                 return True
 
         else:
             # Zustand gleich geblieben → Zeitstempel aktualisieren
             entry["lastStateChange"] = now
+
+            if entry["track"]:
+                entry["track"][-1]["stableFlightState"] = newState
 
         return False
 
@@ -262,9 +276,6 @@ class OgnClient:
         aircraft["flightState"] = currentState
         if track:
             track[-1]["flightState"] = currentState
-
-        if currentState == "airborne":
-            aircraft["lastAirborneTime"] = self.time.getSystemTime()
 
         stableChanged = self.debounceState(aircraftId, currentState)
         if not stableChanged:
@@ -354,6 +365,7 @@ class OgnClient:
             data["bearing"] = safeFloat(data.get("bearing"))
             data["elevAngle"] = safeFloat(data.get("elevAngle"))
             data["relayed"] = bool(data.get("relayed", False))
+            data["distanceToAirport"] = self.distanceToAirport(data["lat"], data["lon"])
 
             if not self.REALTIME_MODE:
                 self.time.setSystemTimeAsynchronousMode(asyntime=data["time"])
