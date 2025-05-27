@@ -208,6 +208,8 @@ class OgnClient:
             flightState = "onGround"
         elif not flgHeightGroundLevel and not flgSpeedValidGound:
             flightState = "airborne"
+        elif flgHeightGroundLevel and flgInsideAirportBoundaries and not flgSpeedValidGound:
+            flightState = "transitionAirGrnd"
         else:
             flightState = "unknown"
 
@@ -423,6 +425,7 @@ class OgnClient:
         aircraftId = data["aircraft"]
         self.aircraftTracks[aircraftId]["track"].append(data)
         self.updateFlightState(aircraftId)
+        self.stateMachine(aircraftId=aircraftId)
 
 
     def monitorSignalReception(self):
