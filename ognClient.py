@@ -322,7 +322,7 @@ class OgnClient:
             if trackInfo["track"]:
                 lastPosition = trackInfo["track"][-1]
                 print(f"✈ {aircraftId} | "
-                    f"State: {trackInfo['state']} | "
+                    f"State: {trackInfo['flightState']} | "
                     f"StableState: {trackInfo['stableState']} | "
                     f"PrevStableState: {trackInfo['prevStableState']} | "
                     f"Pos: {lastPosition['lat']:.5f}, {lastPosition['lon']:.5f} | "
