@@ -329,27 +329,31 @@ class OgnClient:
         self.processAircraftState(aircraftId)
 
     def monitorSignalReception(self):
+        '''
+        Finite state machine for the signal reception status.
+        Classifies if messages are recieved normal or if the time since the last message is to long
+        '''
         now = self.time.getSystemTime() #current time
-        for aircraftId, data in list(self.aircraftTracks.items()):
-            track = data["track"]
+        for aircraftId, data in list(self.aircraftTracks.items()): #loop over aircrafts
+            track = data["track"] #get track data
             if not track:
                 continue #now data available
 
-            lastTimestamp = track[-1]['timestamp']
+            lastTimestamp = track[-1]['timestamp'] #get last timestamp
 
             heartbeatCutoff = now - timedelta(seconds=self.AIRCRAFT_HEARBEAT_MISSING_TIME) #cutoff time for missing heartbeat
             lostCutoff = now - timedelta(seconds=self.AIRCRAFT_LOST_TIME) #cutoff time for lost aircraft
 
             if lastTimestamp < lostCutoff:
-                newReceptionState = "aircraftLost"
+                newReceptionState = "aircraftLost" #cutoff time exceeded, aicraft lost
             elif lastTimestamp < heartbeatCutoff:
-                newReceptionState = "heartbeatMissing"
+                newReceptionState = "heartbeatMissing" #cutoff time exceeded, aicraft not lost but missing
             else:
-                newReceptionState = "normal"
+                newReceptionState = "normal" #normal
 
             if newReceptionState != data.get("receptionState", "normal"):
                 prevState = data["receptionState"]
-                data["receptionState"] = newReceptionState
+                data["receptionState"] = newReceptionState #write the new state
     
     def systemLoop(self):
         #Loop that executes while no new message is processed => maintanance
