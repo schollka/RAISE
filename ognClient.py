@@ -143,12 +143,13 @@ class OgnClient:
             d["distance"] = float(d["distance"])
             d["bearing"] = float(d["bearing"])
             d["elevAngle"] = float(d["elevAngle"])
-            if not self.REALTIME_MODE:
-                self.time.setSystemTimeAsynchronousMode(asyntime=d["time"]) #create a timestamp based on the time in the recieved message
-            d["timestamp"] = self.time.getSystemTime()
             d["reducedDataConfidence"] = d.get("flagged") == "!"
             d["relayed"] = bool(d.get("relayed"))
             d["distanceToAirport"] = self.distanceToAirport(d["lat"], d["lon"])
+            if not self.REALTIME_MODE:
+                self.time.setSystemTimeAsynchronousMode(asyntime=d["time"]) #create a timestamp based on the time in the recieved message
+            d["timestamp"] = self.time.getSystemTime()
+            d["aicraftStates"] = {}
         except Exception as e:
             print(f"OGN message parsing error: {e}")
             return None
@@ -176,6 +177,42 @@ class OgnClient:
         print(f"Connecting to {self.host}:{self.port}...")
         sock.connect((self.host, self.port))
         print("Connected. Waiting for OGN data...\n")
+
+    def debounceStateMachine(self, aircraftID, currentState):
+        print("a")
+
+
+    def stateMachine(self, aircraftId):
+        aircraft = self.aircraftTracks[aircraftId]
+        track = aircraft["track"]
+
+        if not track:
+            return
+        
+        lastDataPoint = track[-1]
+
+        altitude = lastDataPoint.get("alt", 0)
+        speed = lastDataPoint.get("speed", 0)
+        distance = lastDataPoint.get("distanceToAirport", 0)
+
+        minAlt = self.AIRPORT_ALTITUDE - self.ALTITUDE_TOLERANCE
+        maxAlt = self.AIRPORT_ALTITUDE + self.ALTITUDE_TOLERANCE
+        maxSpeed = self.MAX_ON_GROUND_SPEED
+        maxDist = self.ON_GROUND_POSITION_RADIUS
+
+        flgHeightGroundLevel = minAlt <= altitude <= maxAlt
+        flgSpeedValidGound = speed <= maxSpeed
+        flgInsideAirportBoundaries = distance <= maxDist
+
+        if flgHeightGroundLevel and flgSpeedValidGound and flgInsideAirportBoundaries:
+            flightState = "onGround"
+        elif not flgHeightGroundLevel and not flgSpeedValidGound:
+            flightState = "airborne"
+        else:
+            flightState = "unknown"
+
+        lastDataPoint["aircraftStates"] = lastDataPoint.get("aircraftStates", {})
+        lastDataPoint["aircraftStates"]["flightState"] = flightState
 
     def detectFlightState(self, aircraftId):
         aircraft = self.aircraftTracks[aircraftId]
@@ -371,13 +408,13 @@ class OgnClient:
             data["bearing"] = safeFloat(data.get("bearing"))
             data["elevAngle"] = safeFloat(data.get("elevAngle"))
             data["relayed"] = bool(data.get("relayed", False))
+            data["reducedDataConfidence"] = data.get("flagged") == "!"
             data["distanceToAirport"] = self.distanceToAirport(data["lat"], data["lon"])
 
             if not self.REALTIME_MODE:
                 self.time.setSystemTimeAsynchronousMode(asyntime=data["time"])
             data["timestamp"] = self.time.getSystemTime()
-
-            data["reducedDataConfidence"] = data.get("flagged") == "!"
+            data["aicraftStates"] = {}
 
         except Exception as e:
             print(f"Fehler beim Verarbeiten der OGN-Daten: {e}")
