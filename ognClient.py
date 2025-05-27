@@ -177,7 +177,10 @@ class OgnClient:
         sock.connect((self.host, self.port))
         print("Connected. Waiting for OGN data...\n")
 
-    def detectFlightState(self, track):
+    def detectFlightState(self, aircraftId):
+        aircraft = self.aircraftTracks[aircraftId]
+        track = aircraft["track"]
+
         if not track:
             return "unknown"
 
@@ -186,7 +189,10 @@ class OgnClient:
         recentPoints = [p for p in track if p["timestamp"] >= windowStart]
 
         if len(recentPoints) < self.NUMBER_OF_DATA_POINTS_FOR_STATE_ESTIMATION:
-            return "unknown"
+            if aircraft["stableState"] == "onGround":
+                return "onGround"
+            else:
+                return "unknown"
 
         avgAlt = mean(p["alt"] for p in recentPoints)
         avgSpeed = mean(p["speed"] for p in recentPoints)
@@ -272,7 +278,7 @@ class OgnClient:
         aircraft = self.aircraftTracks[aircraftId]
         track = aircraft["track"]
 
-        currentState = self.detectFlightState(track)
+        currentState = self.detectFlightState(aircraftId)
         aircraft["flightState"] = currentState
         if track:
             track[-1]["flightState"] = currentState
