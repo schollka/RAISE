@@ -11,16 +11,16 @@ from databankHandler import saveTrack
 class OgnClient:
     # System parameters
     BUFFER_SECONDS = 300
-    LANDING_LOOKBACK_SECONDS = 30
+    LANDING_LOOKBACK_SECONDS = 15
     AIRPORT_ALTITUDE = 266
-    ALTITUDE_TOLERANCE = 15
-    MAX_ON_GROUND_SPEED = 20 / 3.6
+    ALTITUDE_TOLERANCE = 25
+    MAX_ON_GROUND_SPEED = 25 / 3.6
     STATE_DETECTION_TIME_WINDOW = 20
     AIRPORT_LATITUDE = 49.002222
     AIRPORT_LONGITUDE = 9.086389
     ON_GROUND_POSITION_RADIUS = 750
     MAXIMUM_MESSAGES_IN_BUFFER = 10
-    DEBOUNCE_TIME = 10
+    DEBOUNCE_TIME = 5
     AIRCRAFT_LOST_TIME = 30
     AIRCRAFT_HEARBEAT_MISSING_TIME = 10
     REALTIME_MODE = False
@@ -41,6 +41,7 @@ class OgnClient:
             "stableState": "unknown", #as stable determined aicraft state
             "prevStableState": "unknown", #previos stable aicraft state
             "lastStateChange": self.time.getSystemTime(), #time of last state change
+            "lastAirborneTime": None, #last time when the aicraft was stable airborne
 
             #meta data
             "landedSaved": False, #flag if track data was saved into database
@@ -224,22 +225,27 @@ class OgnClient:
         entry = self.aircraftTracks[aircraftId]
         now = self.time.getSystemTime()
 
+        # Falls sich der Zustand geändert hat (z. B. onGround → airborne)
         if newState != entry["stableState"]:
-            if entry["stableState"] == "aircraftLost" or entry["stableState"] == "heartbeatMissing":
+            timeInCurrentState = now - entry["lastStateChange"]
+
+            if timeInCurrentState >= timedelta(seconds=self.DEBOUNCE_TIME):
                 entry["prevStableState"] = entry["stableState"]
                 entry["stableState"] = newState
                 entry["lastStateChange"] = now
+
+                # Wenn stabiler Zustand jetzt 'airborne' ist → Zeit merken
+                if newState == "airborne":
+                    entry["lastAirborneTime"] = now
+
                 return True
-            else:
-                timeInCurrentState = now - entry["lastStateChange"]
-                if timeInCurrentState >= timedelta(seconds=self.DEBOUNCE_TIME):
-                    entry["prevStableState"] = entry["stableState"]
-                    entry["stableState"] = newState
-                    entry["lastStateChange"] = now
-                    return True
+
         else:
+            # Zustand gleich geblieben → Zeitstempel aktualisieren
             entry["lastStateChange"] = now
+
         return False
+
     
     def detectFlightSubState(self, track):
         """
@@ -249,28 +255,27 @@ class OgnClient:
 
     
     def updateFlightState(self, aircraftId):
-        """
-        FSM zur Zustandsaktualisierung (onGround, airborne, unknown) + takeoff/landing-Logik.
-        """
         aircraft = self.aircraftTracks[aircraftId]
         track = aircraft["track"]
 
-        # 1. Hauptstatus erkennen (onGround, airborne, unknown)
         currentState = self.detectFlightState(track)
         aircraft["flightState"] = currentState
         if track:
             track[-1]["flightState"] = currentState
 
-        # 2. Zustandswechsel stabilisieren
-        stableChanged = self.debounceState(aircraftId, currentState)
+        if currentState == "airborne":
+            aircraft["lastAirborneTime"] = self.time.getSystemTime()
 
+        stableChanged = self.debounceState(aircraftId, currentState)
         if not stableChanged:
             return
 
         prevState = aircraft["prevStableState"]
         newState = aircraft["stableState"]
 
-        # 3. Übergang: onGround → airborne → takeoff
+        #print(f"[FSM-DEBUG] {aircraftId}: prev={prevState}, new={newState}")
+
+        # 🛫 Takeoff-Erkennung
         if newState == "airborne":
             if prevState == "onGround" or (
                 prevState == "unknown" and aircraft.get("prevStableState") == "onGround"
@@ -280,23 +285,27 @@ class OgnClient:
                 aircraft["flightSubState"] = "takeoff"
                 print(f"[FSM] {aircraftId}: takeoff detected")
 
-        # 4. Übergang: airborne → onGround → speichern
-        elif prevState == "airborne" and newState == "onGround":
-            if aircraft["hasBeenAirborne"] and not aircraft["landedSaved"]:
-                self.dumpDataToDatabase(aircraftId, track)
-                aircraft["landedSaved"] = True
-                aircraft["flightSubState"] = None
-                print(f"[FSM] {aircraftId}: landed, data saved")
+        # 🛬 Landung robust erkennen, auch nach unknown
+        elif newState == "onGround":
+            lastAirborne = aircraft.get("lastAirborneTime")
+            if lastAirborne and (self.time.getSystemTime() - lastAirborne) < timedelta(minutes=15):
+                if aircraft["hasBeenAirborne"] and not aircraft["landedSaved"]:
+                    self.dumpDataToDatabase(aircraftId, track)
+                    aircraft["landedSaved"] = True
+                    aircraft["flightSubState"] = None
+                    duration = (self.time.getSystemTime() - lastAirborne).total_seconds()
+                    print(f"[FSM] {aircraftId}: landed after {duration:.0f}s airborne")
 
-        # 5. Alle anderen Übergänge
+        # ✋ alle anderen Zustände
         else:
             aircraft["flightSubState"] = None
 
-        # 6. Platzhalter für zukünftige Substate-Klassifikation
+        # 🧠 Substatus (Platzhalter)
         if newState == "airborne":
             aircraft["flightSubState"] = self.detectFlightSubState(track)
             if track:
                 track[-1]["flightSubState"] = aircraft["flightSubState"]
+
     
     def processMessageLine(self, line):
         parsed = self.parseOgnLine(line)
