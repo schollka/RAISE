@@ -1,6 +1,8 @@
 #Own gitignore
 activateVenv.bat
 startVenv.ps1
+*.pkl
+*.db
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
