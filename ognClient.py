@@ -37,6 +37,7 @@ class OgnClient:
 
             #aircraft states
             "flightState": "unknown", #current calculated aicraft state
+            "flightSubState": None, #substate for the "airborne" flightState
             "stableState": "unknown", #as stable determined aicraft state
             "prevStableState": "unknown", #previos stable aicraft state
             "lastStateChange": self.time.getSystemTime(), #time of last state change
@@ -164,44 +165,39 @@ class OgnClient:
         c = 2 * atan2(sqrt(a), sqrt(1 - a))
         distance = R * c #compute distance
         return distance
+    
+    def connectToOgnServer(self, sock):
+        print(f"Connecting to {self.host}:{self.port}...")
+        sock.connect((self.host, self.port))
+        print("Connected. Waiting for OGN data...\n")
 
-    def detectAircraftState(self, track):
-        #function to determine if a aicraft is on the ground at the airport, airborne or something else
+    def detectFlightState(self, track):
         if not track:
-            return "unknown" #no data available
+            return "unknown"
 
-        now = self.time.getSystemTime() #get current time
-        windowStart = now - timedelta(seconds=self.STATE_DETECTION_TIME_WINDOW) #compute the start time of the time frame
-        recentPoints = [p for p in track if p["timestamp"] >= windowStart] #get all data points in this time frame
+        now = self.time.getSystemTime()
+        windowStart = now - timedelta(seconds=self.STATE_DETECTION_TIME_WINDOW)
+        recentPoints = [p for p in track if p["timestamp"] >= windowStart]
 
         if len(recentPoints) < self.NUMBER_OF_DATA_POINTS_FOR_STATE_ESTIMATION:
-            return "unknown" #not enough data points available
+            return "unknown"
 
-        avgAlt = mean(p["alt"] for p in recentPoints) #compute mean altitude in the time frame
-        minAltThres = self.AIRPORT_ALTITUDE - self.ALTITUDE_TOLERANCE #minimum altitude to be considered on ground at the airport
-        maxAltThres = self.AIRPORT_ALTITUDE + self.ALTITUDE_TOLERANCE #maximum altitude to be considered on ground at the airport
+        avgAlt = mean(p["alt"] for p in recentPoints)
+        avgSpeed = mean(p["speed"] for p in recentPoints)
+        avgLat = mean(p["lat"] for p in recentPoints)
+        avgLon = mean(p["lon"] for p in recentPoints)
+        distanceToAirport = self.haversineDistance(avgLat, avgLon, self.AIRPORT_LATITUDE, self.AIRPORT_LONGITUDE)
 
-        avgSpeed = mean(p["speed"] for p in recentPoints) #compute mean ground speed
-        avgLat = mean(p["lat"] for p in recentPoints) #compute mean latitude
-        avgLon = mean(p["lon"] for p in recentPoints) #compute mean longitude
-        distanceToAirport = self.haversineDistance(avgLat, avgLon, self.AIRPORT_LATITUDE, self.AIRPORT_LONGITUDE) #compute distance to the airport
+        minAltThres = self.AIRPORT_ALTITUDE - self.ALTITUDE_TOLERANCE
+        maxAltThres = self.AIRPORT_ALTITUDE + self.ALTITUDE_TOLERANCE
 
         if minAltThres <= avgAlt <= maxAltThres and avgSpeed <= self.MAX_ON_GROUND_SPEED and distanceToAirport <= self.ON_GROUND_POSITION_RADIUS:
-            '''
-            Aicraft can be considered to be on the ground at the airport when:
-                - the average altitude is above a minimum value and below a maximum value based on the airport altitude and a tolerance value
-                - the average ground speed must be below a theshold
-                - the average position must be in close proximity to the airports reference point
-            '''
-            return "onGround" 
+            return "onGround"
         elif avgSpeed > self.MAX_ON_GROUND_SPEED:
-            '''
-            Aircraft can be considered to be in the air when:
-                - the average speed is above a threshold
-            '''
             return "airborne"
         else:
-            return "unknown" #for all other cases
+            return "unknown"
+
 
     def removeOldTracks(self):
         '''
@@ -224,31 +220,6 @@ class OgnClient:
         print(f"\n[DB] Dumping {len(track)} points for {aircraftId} to database.")
         # TODO: Replace with actual DB logic
 
-    def processAircraftState(self, aircraftId):
-        '''
-        Determine the state of the aircraft.
-        The state must be considered stable.
-        Store aircraft track data into the database when an aicraft landed on the airport.
-        '''
-
-        aircraft = self.aircraftTracks[aircraftId] #get the aircraft
-        currentState = aircraft["state"] #get the newest computed state
-
-        stableChanged = self.debounceState(aircraftId, currentState) #debounce the aicrafts state
-
-        if stableChanged:
-            prevState = aircraft["prevStableState"] #get the previos aircraft state
-            newState = aircraft["stableState"] #get the newly determined state
-
-            if prevState == "airborne" and newState == "onGround":
-                if aircraft["hasBeenAirborne"] and not aircraft["landedSaved"]:
-                    self.dumpDataToDatabase(aircraftId, self.aircraftTracks[aircraftId]["track"])
-                    aircraft["landedSaved"] = True
-
-            elif prevState != "airborne"  and newState == "airborne":
-                aircraft["hasBeenAirborne"] = True
-                aircraft["landedSaved"] = False
-
     def debounceState(self, aircraftId, newState):
         entry = self.aircraftTracks[aircraftId]
         now = self.time.getSystemTime()
@@ -270,11 +241,63 @@ class OgnClient:
             entry["lastStateChange"] = now
         return False
     
-    def connectToOgnServer(self, sock):
-        print(f"Connecting to {self.host}:{self.port}...")
-        sock.connect((self.host, self.port))
-        print("Connected. Waiting for OGN data...\n")
+    def detectFlightSubState(self, track):
+        """
+        Platzhalter für spätere ML oder Regelbasierte Klassifikation.
+        """
+        return "cruise"  # Dummy – später ersetzt durch echte Logik oder ML
 
+    
+    def updateFlightState(self, aircraftId):
+        """
+        FSM zur Zustandsaktualisierung (onGround, airborne, unknown) + takeoff/landing-Logik.
+        """
+        aircraft = self.aircraftTracks[aircraftId]
+        track = aircraft["track"]
+
+        # 1. Hauptstatus erkennen (onGround, airborne, unknown)
+        currentState = self.detectFlightState(track)
+        aircraft["flightState"] = currentState
+        if track:
+            track[-1]["flightState"] = currentState
+
+        # 2. Zustandswechsel stabilisieren
+        stableChanged = self.debounceState(aircraftId, currentState)
+
+        if not stableChanged:
+            return
+
+        prevState = aircraft["prevStableState"]
+        newState = aircraft["stableState"]
+
+        # 3. Übergang: onGround → airborne → takeoff
+        if newState == "airborne":
+            if prevState == "onGround" or (
+                prevState == "unknown" and aircraft.get("prevStableState") == "onGround"
+            ):
+                aircraft["hasBeenAirborne"] = True
+                aircraft["landedSaved"] = False
+                aircraft["flightSubState"] = "takeoff"
+                print(f"[FSM] {aircraftId}: takeoff detected")
+
+        # 4. Übergang: airborne → onGround → speichern
+        elif prevState == "airborne" and newState == "onGround":
+            if aircraft["hasBeenAirborne"] and not aircraft["landedSaved"]:
+                self.dumpDataToDatabase(aircraftId, track)
+                aircraft["landedSaved"] = True
+                aircraft["flightSubState"] = None
+                print(f"[FSM] {aircraftId}: landed, data saved")
+
+        # 5. Alle anderen Übergänge
+        else:
+            aircraft["flightSubState"] = None
+
+        # 6. Platzhalter für zukünftige Substate-Klassifikation
+        if newState == "airborne":
+            aircraft["flightSubState"] = self.detectFlightSubState(track)
+            if track:
+                track[-1]["flightSubState"] = aircraft["flightSubState"]
+    
     def processMessageLine(self, line):
         parsed = self.parseOgnLine(line)
         if not parsed:
@@ -282,12 +305,8 @@ class OgnClient:
 
         aircraftId = parsed["aircraft"]
         self.aircraftTracks[aircraftId]["track"].append(parsed)
-
-        currentState = self.detectAircraftState(self.aircraftTracks[aircraftId]["track"])
-        self.aircraftTracks[aircraftId]["state"] = currentState
-        self.aircraftTracks[aircraftId]["track"][-1]["state"] = currentState
-        self.processAircraftState(aircraftId)
-        
+        self.updateFlightState(aircraftId)
+       
     def processMessageDict(self, data):
         try:
             # Sicher konvertieren
@@ -322,11 +341,8 @@ class OgnClient:
 
         aircraftId = data["aircraft"]
         self.aircraftTracks[aircraftId]["track"].append(data)
+        self.updateFlightState(aircraftId)
 
-        currentState = self.detectAircraftState(self.aircraftTracks[aircraftId]["track"])
-        self.aircraftTracks[aircraftId]["state"] = currentState
-        self.aircraftTracks[aircraftId]["track"][-1]["state"] = currentState
-        self.processAircraftState(aircraftId)
 
     def monitorSignalReception(self):
         '''
