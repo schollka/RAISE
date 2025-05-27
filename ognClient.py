@@ -315,6 +315,23 @@ class OgnClient:
         aircraftId = parsed["aircraft"]
         self.aircraftTracks[aircraftId]["track"].append(parsed)
         self.updateFlightState(aircraftId)
+
+    def printInfos(self):
+        print("------------------------------------")
+        for aircraftId, trackInfo in self.aircraftTracks.items():
+            if trackInfo["track"]:
+                lastPosition = trackInfo["track"][-1]
+                print(f"✈ {aircraftId} | "
+                    f"State: {trackInfo['state']} | "
+                    f"StableState: {trackInfo['stableState']} | "
+                    f"PrevStableState: {trackInfo['prevStableState']} | "
+                    f"Pos: {lastPosition['lat']:.5f}, {lastPosition['lon']:.5f} | "
+                    f"Alt: {lastPosition['alt']}m | "
+                    f"Spd: {lastPosition['speed']:.1f}m/s | "
+                    f"Last Package: {(self.time.getSystemTime() - lastPosition['timestamp']).total_seconds():.0f}s | "
+                    f"OGNtime: {(lastPosition['time'])} | "
+                    f"SysTime: {(lastPosition['timestamp'])}")
+        print("------------------------------------")
        
     def processMessageDict(self, data):
         try:
@@ -417,23 +434,6 @@ class OgnClient:
                             
                             self.processMessageLine(line)
                             self.removeOldTracks()
-
-                            # Terminal Output (optional, can be moved to a separate method)
-                            print("------------------------------------")
-                            for aircraftId, trackInfo in self.aircraftTracks.items():
-                                if trackInfo["track"]:
-                                    lastPosition = trackInfo["track"][-1]
-                                    print(f"✈ {aircraftId} | "
-                                        f"State: {trackInfo['state']} | "
-                                        f"StableState: {trackInfo['stableState']} | "
-                                        f"PrevStableState: {trackInfo['prevStableState']} | "
-                                        f"Pos: {lastPosition['lat']:.5f}, {lastPosition['lon']:.5f} | "
-                                        f"Alt: {lastPosition['alt']}m | "
-                                        f"Spd: {lastPosition['speed']:.1f}m/s | "
-                                        f"Last Package: {(self.time.getSystemTime() - lastPosition['timestamp']).total_seconds():.0f}s | "
-                                        f"OGNtime: {(lastPosition['time'])} | "
-                                        f"SysTime: {(lastPosition['timestamp'])}")
-                            print("------------------------------------")
 
                         if '\n' in buffer:
                             buffer = '' #delete remaining buffer contents
