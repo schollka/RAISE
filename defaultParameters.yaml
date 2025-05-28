@@ -26,8 +26,3 @@ stateEstimationParameters:
 signalReceptionParameters:
   AIRCRAFT_LOST_TIME: 30              #aircraft is classified lost, if no data is recieved after the specified duration [s]
   AIRCRAFT_HEARBEAT_MISSING_TIME: 10  #the heartbeat of the aircraft is missing, if no data is recieved after the specified duration. It is not yet classified as lost [s]
-
-
-    
-
-    
