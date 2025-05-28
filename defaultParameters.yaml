@@ -1,0 +1,29 @@
+systemParameters:
+  HOST: 127.0.0.1                       #IP adress of the OGN decode TCP server (localhost) [IP]
+  PORT: 50001                           #port number of the OGN decode TCP server [-]
+  DEQUE_LENGHT: 100000                  #maximum number of data points in the buffer (RAM) per aircraft [-]
+  STORAGE_DURATION_SECONDS: 300         #maximum duration a data point is retained in buffer (RAM) [s]
+  MAXIMUM_MESSAGES_IN_INPUT_BUFFER: 10  #maximum number of messages that are held in the input buffer for processing [-]
+  REALTIME_MODE: False                  #run the system in realtime mode (deployed) or in asynchrone mode (testing) [bool]
+
+airportParameters:
+  AIRPORT_ALTITUDE: 266         #altitude of the airport above mean sea level [m]
+  AIRPORT_LATITUDE: 49.002222   #latitude of the airport reference position [°]
+  AIRPORT_LONGITUDE: 9.086389   #longitude of the airport reference positoin [°]
+
+stateEstimationParameters:
+  STATE_DETECTION_TIME_WINDOW: 30             #time window used to average data points for the state estimation [s]
+  ALTITUDE_TOLERANCE: 25                      #allowed tolerance of the aircraft altitude above/below AIRPORT_ALTITUDE to classify as on-ground [m]
+  MAX_ON_GROUND_SPEED: 25                     #maximum allowed aircraft ground speed to classify as on-ground [km/h]
+  MIN_NUMBER_DATA_POINTS_STATE_ESTIMATION: 2  #minimum number of data points for the average-based state estimation [-]
+  ON_GROUND_POSITION_RADIUS: 750              #maximum distance from airport to classify as on-ground [m]
+  DEBOUNCE_TIME: 5                            #state debouncing, time a state must be continously present to be considered stable [s]
+
+signalReceptionParameters:
+  AIRCRAFT_LOST_TIME: 30              #aircraft is classified lost, if no data is recieved after the specified duration [s]
+  AIRCRAFT_HEARBEAT_MISSING_TIME: 10  #the heartbeat of the aircraft is missing, if no data is recieved after the specified duration. It is not yet classified as lost [s]
+
+
+    
+
+    

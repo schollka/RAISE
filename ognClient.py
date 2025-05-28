@@ -7,6 +7,9 @@ from math import radians, sin, cos, sqrt, atan2
 import select
 from auxillaryFunctions import safeFloat, safeInt
 from databankHandler import saveTrack
+import yaml
+import os
+import shutil
 
 class OgnClient:
     # System parameters
@@ -24,9 +27,21 @@ class OgnClient:
     AIRCRAFT_LOST_TIME = 30
     AIRCRAFT_HEARBEAT_MISSING_TIME = 10
     REALTIME_MODE = False
-    NUMBER_OF_DATA_POINTS_FOR_STATE_ESTIMATION = 5
+    MIN_NUMBER_DATA_POINTS_STATE_ESTIMATION = 5
 
     def __init__(self, host="127.0.0.1", port=50001):
+        #Load parameters from parameter file
+        sourceCodeDir = os.path.dirname(os.path.abspath(__file__))
+        parameterFile = os.path.join(sourceCodeDir, "parameters.yaml")
+        defaultParameters = os.path.join(sourceCodeDir, "defaultParameters.yaml")
+        # Check if parameters.yaml exists and copy default if nonexistent
+        if not os.path.exists(parameterFile):
+            shutil.copy(defaultParameters, parameterFile)
+        #Load parameters
+        with open(parameterFile, "r") as file:
+            allParams = yaml.safe_load(file)
+
+
         self.host = host
         self.port = port
         self.time = self.TimeManager()
@@ -215,20 +230,23 @@ class OgnClient:
             windowStart = now - timedelta(seconds=self.STATE_DETECTION_TIME_WINDOW)
             recentPoints = [p for p in track if p["timestamp"] >= windowStart]
             
-            avgAlt = mean(p["alt"] for p in recentPoints)
-            avgSpeed = mean(p["speed"] for p in recentPoints)
-            avgDist = mean(p["distanceToAirport"] for p in recentPoints)
+            if len(recentPoints) >= self.MIN_NUMBER_DATA_POINTS_STATE_ESTIMATION:
+                avgAlt = mean(p["alt"] for p in recentPoints)
+                avgSpeed = mean(p["speed"] for p in recentPoints)
+                avgDist = mean(p["distanceToAirport"] for p in recentPoints)
 
-            flgAvrHeightGroundLevel = minAlt <= avgAlt <= maxAlt
-            flgAvrSpeedValidGound = avgSpeed <= maxSpeed
-            flgAvrInsideAirportBoundaries = avgDist <= maxDist
+                flgAvrHeightGroundLevel = minAlt <= avgAlt <= maxAlt
+                flgAvrSpeedValidGound = avgSpeed <= maxSpeed
+                flgAvrInsideAirportBoundaries = avgDist <= maxDist
 
-            if flgAvrHeightGroundLevel and flgAvrSpeedValidGound and flgAvrInsideAirportBoundaries:
-                flightState = "onGround"
-            elif not flgAvrHeightGroundLevel and not flgAvrSpeedValidGound:
-                flightState = "airborne"
-            elif flgAvrHeightGroundLevel and flgAvrInsideAirportBoundaries and not flgAvrSpeedValidGound:
-                flightState = "transitionAirGrnd"
+                if flgAvrHeightGroundLevel and flgAvrSpeedValidGound and flgAvrInsideAirportBoundaries:
+                    flightState = "onGround"
+                elif not flgAvrHeightGroundLevel and not flgAvrSpeedValidGound:
+                    flightState = "airborne"
+                elif flgAvrHeightGroundLevel and flgAvrInsideAirportBoundaries and not flgAvrSpeedValidGound:
+                    flightState = "transitionAirGrnd"
+                else:
+                    flightState = "unknown"
             else:
                 flightState = "unknown"
 

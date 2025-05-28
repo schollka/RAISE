@@ -3,6 +3,7 @@ activateVenv.bat
 startVenv.ps1
 *.pkl
 *.db
+parameters.yaml
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
