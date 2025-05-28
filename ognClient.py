@@ -36,22 +36,20 @@ class OgnClient:
         self.port = self.systemParameters["PORT"]
         self.time = self.TimeManager()
 
-        print(self.time.getSystemTime())
-
         #Initialize aircraft tracks dictionary
         self.aircraftTracks = defaultdict(lambda: {
             "track": deque(maxlen=self.systemParameters["DEQUE_LENGHT"]), #OGN message data
 
             #aircraft states
-            "flightState": "unknown", #current calculated aicraft state
+            "flightState": "unknown", #current calculated aircraft state
             "flightSubState": None, #substate for the "airborne" flightState
-            "stableState": "unknown", #as stable determined aicraft state
+            "stableState": "unknown", #as stable determined aircraft state
             "pendingState": {"state": "unknown", "timestamp": self.time.getSystemTime()},
-            "prevStableState": "unknown", #previos stable aicraft state
+            "prevStableState": "unknown", #previos stable aircraft state
 
 
             "lastStateChange": self.time.getSystemTime(), #time of last state change
-            "lastAirborneTime": None, #last time when the aicraft was stable airborne
+            "lastAirborneTime": None, #last time when the aircraft was stable airborne
 
             #meta data
             "landedSaved": False, #flag if track data was saved into database
@@ -92,7 +90,7 @@ class OgnClient:
         - recieving time of ogn-decode
         - frequency
         - network ID level
-        - aicraft ID
+        - aircraft ID
         - GNSS time
         - position [Lat, Long]
         - GPS altitude
@@ -101,7 +99,7 @@ class OgnClient:
         - heading
         - turn rate
         - aircraft type
-        - aicraft dimension
+        - aircraft dimension
         - stealth status
         - NoTrack hex-code
         - frequency offset
@@ -159,7 +157,7 @@ class OgnClient:
             if not self.systemParameters["REALTIME_MODE"]:
                 self.time.setSystemTimeAsynchronousMode(asyntime=d["time"]) #create a timestamp based on the time in the recieved message
             d["timestamp"] = self.time.getSystemTime()
-            d["aicraftStates"] = {}
+            d["aircraftStates"] = {}
         except Exception as e:
             print(f"OGN message parsing error: {e}")
             return None
@@ -344,7 +342,7 @@ class OgnClient:
             while track and track[0]["timestamp"] < cutoff:
                 track.popleft() #delete data
             if not track:
-                del self.aircraftTracks[aircraftId] #delete aicraft entry when no data points are left
+                del self.aircraftTracks[aircraftId] #delete aircraft entry when no data points are left
 
     def dumpDataToDatabase(self, aircraftId, track):
         dbPath = "flightData.db"
@@ -497,7 +495,7 @@ class OgnClient:
             if not self.systemParameters["REALTIME_MODE"]:
                 self.time.setSystemTimeAsynchronousMode(asyntime=data["time"])
             data["timestamp"] = self.time.getSystemTime()
-            data["aicraftStates"] = {}
+            data["aircraftStates"] = {}
 
         except Exception as e:
             print(f"Fehler beim Verarbeiten der OGN-Daten: {e}")
@@ -505,7 +503,6 @@ class OgnClient:
 
         aircraftId = data["aircraft"]
         self.aircraftTracks[aircraftId]["track"].append(data)
-        self.updateFlightState(aircraftId)
         self.stateMachine(aircraftId=aircraftId)
 
 
@@ -526,9 +523,9 @@ class OgnClient:
             lostCutoff = now - timedelta(seconds=self.signalReceptionParameters["AIRCRAFT_LOST_TIME"]) #cutoff time for lost aircraft
 
             if lastTimestamp < lostCutoff:
-                newReceptionState = "aircraftLost" #cutoff time exceeded, aicraft lost
+                newReceptionState = "aircraftLost" #cutoff time exceeded, aircraft lost
             elif lastTimestamp < heartbeatCutoff:
-                newReceptionState = "heartbeatMissing" #cutoff time exceeded, aicraft not lost but missing
+                newReceptionState = "heartbeatMissing" #cutoff time exceeded, aircraft not lost but missing
             else:
                 newReceptionState = "normal" #normal
 
