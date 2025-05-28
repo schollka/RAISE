@@ -12,39 +12,49 @@ import os
 import shutil
 
 class OgnClient:
-    # System parameters
-    DEBOUNCE_TIME = 5
-
     def __init__(self):
-        #Load parameters from parameter file
-        sourceCodeDir = os.path.dirname(os.path.abspath(__file__))
-        parameterFile = os.path.join(sourceCodeDir, "parameters.yaml")
-        defaultParameters = os.path.join(sourceCodeDir, "defaultParameters.yaml")
-        # Check if parameters.yaml exists and copy default if nonexistent
+        '''
+        Set up the OGN-Client and all its needed parameters
+        '''
+
+        ####################################################
+        ################# load parameter file ##############
+        ####################################################
+
+        sourceCodeDir = os.path.dirname(os.path.abspath(__file__)) #get the directory of the source code
+        parameterFile = os.path.join(sourceCodeDir, "parameters.yaml") #build the absolute file path of the expected parameter file
+        defaultParameters = os.path.join(sourceCodeDir, "defaultParameters.yaml") #build the absolute file path of the default parameter file
+        
+        # Check if parameterFile exists and copy default if nonexistent
         if not os.path.exists(parameterFile):
             shutil.copy(defaultParameters, parameterFile) #copy default parameters
         #Load parameters
-        with open(parameterFile, "r") as file: #load parameters from file
+        with open(parameterFile, "r") as file: #load parameters from file, contains either custom values or the copied default values
             allParams = yaml.safe_load(file)
 
-        self.systemParameters = allParams["systemParameters"]
-        self.airportParameters = allParams["airportParameters"]
-        self.stateEstimationParameters = allParams["stateEstimationParameters"]
-        self.signalReceptionParameters = allParams["signalReceptionParameters"]
+        #extract parameter dictionaries
+        self.systemParameters = allParams["systemParameters"] #general system parameters
+        self.airportParameters = allParams["airportParameters"] #airport parameters
+        self.stateEstimationParameters = allParams["stateEstimationParameters"] #parameters used for state estimation
+        self.signalReceptionParameters = allParams["signalReceptionParameters"] #signal reception state estimation parameters
 
-        self.host = self.systemParameters["HOST"]
-        self.port = self.systemParameters["PORT"]
-        self.time = self.TimeManager()
+        ####################################################
+        ################# initialize system ################
+        ####################################################
 
-        #Initialize aircraft tracks dictionary
+        self.host = self.systemParameters["HOST"] #define the host adress of the ogn-decode server
+        self.port = self.systemParameters["PORT"] #define the port of the ogn-decode TCP server
+        self.time = self.TimeManager() #initialize system time
+
+        #initialize aircraft tracks dictionary
         self.aircraftTracks = defaultdict(lambda: {
-            "track": deque(maxlen=self.systemParameters["DEQUE_LENGHT"]), #OGN message data
+            "track": deque(maxlen=self.systemParameters["DEQUE_LENGHT"]), #deque to store all data points
 
             #aircraft states
             "flightState": "unknown", #current calculated aircraft state
             "flightSubState": None, #substate for the "airborne" flightState
-            "stableState": "unknown", #as stable determined aircraft state
-            "pendingState": {"state": "unknown", "timestamp": self.time.getSystemTime()},
+            "stableState": "unknown", #currently as stable determined aircraft state
+            "pendingState": {"state": "unknown", "timestamp": self.time.getSystemTime()}, #pending states, currently in debounce
             "prevStableState": "unknown", #previos stable aircraft state
 
 
@@ -60,28 +70,39 @@ class OgnClient:
         })
 
     class TimeManager:
+        '''
+        The system relies on multiple time dependent calculations.
+        The system time is abstracted behind this time manager to facilitate those calculations in two modes.
+            Synchrone mode:
+                If the system is operated as a real-time service, then the systems realtime is used
+            Asynchrone mode:
+                For development, testing and training the system is set to run in asynchrone mode.
+                In this case the reference time is syntetically created based on the used dataset.
+        '''
         def __init__(self):
-            self.time = datetime.now(timezone.utc)
+            self.time = datetime.now(timezone.utc) #set time to realtime
         
         def setSystemTime(self):
-            self.time = datetime.now(timezone.utc)
+            self.time = datetime.now(timezone.utc) #set time to realtime
 
         def setSystemTimeAsynchronousMode(self, asyntime: int, referenceDate: datetime = None):
-            #this functions demodulates a timestamp in the format HHMMSS into a vaild datetime system time
+            #this functions demodulates a timestamp in the format HHMMSS and creates a valid reference time from it
             hh = asyntime // 10000
             mm = (asyntime // 100) % 100
             ss = asyntime % 100
 
             #Specify the date
             if referenceDate is None:
-                referenceDate = datetime.now(timezone.utc)
+                #the real current date is used, since all data is expected to be from the same date
+                #in that case no relevant information is lost or added to the data by using the wrong date
+                referenceDate = datetime.now(timezone.utc) 
 
-            #Combine date and time
+            #Combine date and time into a valid structure
             asynSysTime = datetime.combine(referenceDate.date(), time(hh, mm, ss), tzinfo=timezone.utc)
             self.time = asynSysTime #set asynchrone system time
 
         def getSystemTime(self):
-            return self.time
+            return self.time #return the set time
 
     '''
     Regex expression for OGN message decode
@@ -154,7 +175,7 @@ class OgnClient:
             d["reducedDataConfidence"] = d.get("flagged") == "!"
             d["relayed"] = bool(d.get("relayed"))
             d["distanceToAirport"] = self.distanceToAirport(d["lat"], d["lon"])
-            if not self.systemParameters["REALTIME_MODE"]:
+            if not self.systemParameters["REALTIME_MODE"]: #switch for realtime operation or asynchrone operation
                 self.time.setSystemTimeAsynchronousMode(asyntime=d["time"]) #create a timestamp based on the time in the recieved message
             d["timestamp"] = self.time.getSystemTime()
             d["aircraftStates"] = {}
@@ -165,69 +186,90 @@ class OgnClient:
 
     @staticmethod
     def haversineDistance(lat1, lon1, lat2, lon2):
-        #Tool for the calculation of the distance between two points on earths surface
-        R = 6371000  # Earth radius in meters
+        #Tool for the calculation of the distance between two points on earths sqherical surface
+        R = 6371000  #earth radius in meters
         phi1 = radians(lat1) #convert to radians
         phi2 = radians(lat2) #convert to radians
         dPhi = radians(lat2 - lat1) #compute latitude delta
         dLambda = radians(lon2 - lon1) #compute longitude delta
 
-        a = sin(dPhi / 2) ** 2 + cos(phi1) * cos(phi2) * sin(dLambda / 2) ** 2
-        c = 2 * atan2(sqrt(a), sqrt(1 - a))
+        a = sin(dPhi / 2) ** 2 + cos(phi1) * cos(phi2) * sin(dLambda / 2) ** 2 #compute coefficient
+        c = 2 * atan2(sqrt(a), sqrt(1 - a)) #compute coefficient
         distance = R * c #compute distance
+
         return distance
     
     def distanceToAirport(self, lat, lon):
+        #compute the current distance from the aircraft to the airports reference position
         distanceToAirport = self.haversineDistance(lat, lon, self.airportParameters["AIRPORT_LATITUDE"], self.airportParameters["AIRPORT_LONGITUDE"])
         return distanceToAirport
     
     def connectToOgnServer(self, sock):
+        #try to connect to to the ogn-decode TCP server and establish communication
         print(f"Connecting to {self.host}:{self.port}...")
         sock.connect((self.host, self.port))
         print("Connected. Waiting for OGN data...\n")
 
     def debounceFlightState(self, aircraftId, newState):
-        flgStableStateChanged = False
-        now = self.time.getSystemTime()
-        data = self.aircraftTracks[aircraftId]
+        '''
+        The computed state of the aircraft can toggle between different states.
+        In order to have a robust classification of the aircrafts state the "stableState" variable is used.
+        The current state of the aircraft has to fullfill certian requirements
+        to be considered as the current stable state of the aircraft.
+        '''
 
-        currentStableState = data["stableState"]
-        prevStableState = data["prevStableState"]
-        pendingStateState = data["pendingState"]["state"]
-        pendingStatetimestamp = data["pendingState"]["timestamp"]
+        flgStableStateChanged = False #flag is set to True if the stable state of the aircraft is changed during debouncing
+        now = self.time.getSystemTime() #get the current valid time
+        data = self.aircraftTracks[aircraftId] #get the data from the aircraft
 
-        data["state"] = newState
-        #zustand hat sich geändert
+        currentStableState = data.get("stableState", "unknown") #get the currently set stable state of the aircraft
+        prevStableState = data.get("prevStableState", "unknown") #get the previosly set stable state of the aircraft
+        pendingStateState = data.get("pendingState", {}).get("state", "unknown") #get the currently debouncing state
+        pendingStateTimestamp = data.get("pendingState", {}).get("timestamp", now) #get the time since the currently debouncing state first occured
+
+        data["state"] = newState #set the new state
+
+        #debounce the new aircraft state
         if newState == currentStableState:
+            #the currently stable state is the same as the new computed state => no change needed, no debouncing needed
+            
+            #prepare variables for the return dictionary
             newStableState = currentStableState
             newPrevStableState = prevStableState
             newPendingState = {"state": pendingStateState,
-                               "timestamp": pendingStatetimestamp}
+                               "timestamp": pendingStateTimestamp}
         else:
+            #the currently stable state is not the same as the new cumputed state => debouncing needed
             if newState == pendingStateState:
-                if now - pendingStatetimestamp >= timedelta(seconds=self.stateEstimationParameters["DEBOUNCE_TIME"]):
-                    newStableState = newState
-                    newPrevStableState = currentStableState
-                    newPendingState = {"state": newState,
-                                       "timestamp": now}
+                #the new state already occured and is currently in the debouncing logic
+                if now - pendingStateTimestamp >= timedelta(seconds=self.stateEstimationParameters["DEBOUNCE_TIME"]):
+                    #the new state was present long enough to be considered stable => change all state variables
+                    newStableState = newState #change the new stable state to the new and debounced state
+                    newPrevStableState = currentStableState #set the previos stable state variable accordingly
+                    newPendingState = {"state": pendingStateState,
+                                       "timestamp": pendingStateTimestamp} #the information here will not be changed
                     
-                    data["stableState"] = newStableState
-                    data["prevStableState"] = newPrevStableState
-                    data["pendingState"] = newPendingState
-                    flgStableStateChanged = True
+                    data["stableState"] = newStableState #write to aircraft
+                    data["prevStableState"] = newPrevStableState #write to aircraft
+                    data["pendingState"] = newPendingState #write to aircraft
+                    flgStableStateChanged = True #set flag
                 else:
-                    newStableState = currentStableState
+                    #the new state already occured but not long enough => wait for future data points
+                    #prepare variables for the return dictionary
+                    newStableState = currentStableState 
                     newPrevStableState = prevStableState
                     newPendingState = {"state": pendingStateState,
-                                    "timestamp": pendingStatetimestamp}
+                                    "timestamp": pendingStateTimestamp}
             else:
+                #the new state is currently not in the debouncing logic => start debouncing process
+                #prepare variables for the return dictionary
                 newStableState = currentStableState
                 newPrevStableState = currentStableState
                 newPendingState = {"state": newState,
-                                   "timestamp": now}
+                                   "timestamp": now} #here the new state and its time is stored for debouncing with the next data point
                 data["pendingState"] = newPendingState
 
-        
+        #create return dictionary
         newStates = {
             "flightState": newState,
             "stableState": newStableState,
@@ -238,47 +280,64 @@ class OgnClient:
         return flgStableStateChanged, newStates
    
     def stateMachine(self, aircraftId):
-        aircraft = self.aircraftTracks[aircraftId]
-        track = aircraft["track"]
+        '''
+        The state machine classifies the aircrafts current state based on the newest data and a set of parameters
+        The aircrafts states can be: 
+            onGound: the aircraft is on the ground at the airport
+            airborne: the aircraft is currently airborne
+            transitionAirGrnd: the aircraft is in a transition state between onGound and airborne => take off or final approach
+            unknown: the state could not be classified
+        '''
+
+        aircraft = self.aircraftTracks[aircraftId] #get the corresponding aircraft
+        track = aircraft["track"] #get its data
 
         if not track:
-            return
+            return #abort if no data is present
         
-        lastDataPoint = track[-1]
+        lastDataPoint = track[-1] #get the newest data point in the track data
 
-        altitude = lastDataPoint.get("alt", 0)
-        speed = lastDataPoint.get("speed", 0)
-        distance = lastDataPoint.get("distanceToAirport", 0)
+        altitude = lastDataPoint.get("alt", 0) #get the alitude value
+        speed = lastDataPoint.get("speed", 0) #get the ground speed value
+        distance = lastDataPoint.get("distanceToAirport", 0) #get the distance from the airport
 
+        #determine limits for the state "onGround"
         minAlt = self.airportParameters["AIRPORT_ALTITUDE"] - self.stateEstimationParameters["ALTITUDE_TOLERANCE"]
         maxAlt = self.airportParameters["AIRPORT_ALTITUDE"] + self.stateEstimationParameters["ALTITUDE_TOLERANCE"]
         maxSpeed = self.stateEstimationParameters["MAX_ON_GROUND_SPEED"] / 3.6
         maxDist = self.stateEstimationParameters["ON_GROUND_POSITION_RADIUS"]
 
-        flgHeightGroundLevel = minAlt <= altitude <= maxAlt
-        flgSpeedValidGound = speed <= maxSpeed
-        flgInsideAirportBoundaries = distance <= maxDist
+        #create flags, that correspond to the previosly set limits
+        flgHeightGroundLevel = minAlt <= altitude <= maxAlt #aircrafts altitude can be considered on ground at the airport
+        flgSpeedValidGound = speed <= maxSpeed #the aircrafts ground speed is so low that it can only be moving on the ground
+        flgInsideAirportBoundaries = distance <= maxDist #its position is somewhere in the near vicinity of the airport
 
         if flgHeightGroundLevel and flgSpeedValidGound and flgInsideAirportBoundaries:
-            flightState = "onGround"
+            flightState = "onGround" #if all three flags are true, then the aircraft is on the ground at the airport
         elif not flgHeightGroundLevel and not flgSpeedValidGound:
-            flightState = "airborne"
+            flightState = "airborne" #if the altitude is outside the airports height and the velocity is higher then the maximum ground handling speed, then it is airbone
         elif flgHeightGroundLevel and flgInsideAirportBoundaries and not flgSpeedValidGound:
-            flightState = "transitionAirGrnd"
+            flightState = "transitionAirGrnd" #if its speed is to high but it is in the airports vicinity and inside the height band, then it is landing or taking off
         else:
-            now = self.time.getSystemTime()
-            windowStart = now - timedelta(seconds=self.stateEstimationParameters["STATE_DETECTION_TIME_WINDOW"])
-            recentPoints = [p for p in track if p["timestamp"] >= windowStart]
+            #if none of those conditions is met, then further investigation is needed
+            #for a better understanding of the aircrafts state, now averaged values are used for the classification
+
+            now = self.time.getSystemTime() #get the current time
+            windowStart = now - timedelta(seconds=self.stateEstimationParameters["STATE_DETECTION_TIME_WINDOW"]) #determine the start time of the time window
+            recentPoints = [p for p in track if p["timestamp"] >= windowStart] #get all data points from the start time until now
             
-            if len(recentPoints) >= self.stateEstimationParameters["MIN_NUMBER_DATA_POINTS_STATE_ESTIMATION"]:
+            if len(recentPoints) >= self.stateEstimationParameters["MIN_NUMBER_DATA_POINTS_STATE_ESTIMATION"]: #ensure a minimum number of points is used
+                #compute the average altidude, ground speed and distance
                 avgAlt = mean(p["alt"] for p in recentPoints)
                 avgSpeed = mean(p["speed"] for p in recentPoints)
                 avgDist = mean(p["distanceToAirport"] for p in recentPoints)
 
+                #compute the flags as before but with the average values
                 flgAvrHeightGroundLevel = minAlt <= avgAlt <= maxAlt
                 flgAvrSpeedValidGound = avgSpeed <= maxSpeed
                 flgAvrInsideAirportBoundaries = avgDist <= maxDist
 
+                #same classification logic as before
                 if flgAvrHeightGroundLevel and flgAvrSpeedValidGound and flgAvrInsideAirportBoundaries:
                     flightState = "onGround"
                 elif not flgAvrHeightGroundLevel and not flgAvrSpeedValidGound:
@@ -286,14 +345,15 @@ class OgnClient:
                 elif flgAvrHeightGroundLevel and flgAvrInsideAirportBoundaries and not flgAvrSpeedValidGound:
                     flightState = "transitionAirGrnd"
                 else:
-                    flightState = "unknown"
+                    flightState = "unknown" #if again no classification is met, then the aircrafts state is unknown
             else:
-                flightState = "unknown"
+                flightState = "unknown" #if not enough points are present for a robust average, then the aircrafts state is unknown
 
-        flgStableStateChanged, newStates = self.debounceFlightState(aircraftId, flightState)
+        flgStableStateChanged, newStates = self.debounceFlightState(aircraftId, flightState) #debounce the computed state
 
+        #write all current states (state, stableState, ...) into the corresponding deque entry for storage
         lastDataPoint["aircraftStates"] = lastDataPoint.get("aircraftStates", {})
-        lastDataPoint["aircraftStates"] = newStates
+        lastDataPoint["aircraftStates"] = newStates 
 
     def detectFlightState(self, aircraftId):
         aircraft = self.aircraftTracks[aircraftId]
