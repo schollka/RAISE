@@ -13,42 +13,32 @@ import shutil
 
 class OgnClient:
     # System parameters
-    BUFFER_SECONDS = 300
-    LANDING_LOOKBACK_SECONDS = 15
-    AIRPORT_ALTITUDE = 266
-    ALTITUDE_TOLERANCE = 25
-    MAX_ON_GROUND_SPEED = 25 / 3.6
-    STATE_DETECTION_TIME_WINDOW = 30
-    AIRPORT_LATITUDE = 49.002222
-    AIRPORT_LONGITUDE = 9.086389
-    ON_GROUND_POSITION_RADIUS = 750
-    MAXIMUM_MESSAGES_IN_BUFFER = 10
     DEBOUNCE_TIME = 5
-    AIRCRAFT_LOST_TIME = 30
-    AIRCRAFT_HEARBEAT_MISSING_TIME = 10
-    REALTIME_MODE = False
-    MIN_NUMBER_DATA_POINTS_STATE_ESTIMATION = 5
 
-    def __init__(self, host="127.0.0.1", port=50001):
+    def __init__(self):
         #Load parameters from parameter file
         sourceCodeDir = os.path.dirname(os.path.abspath(__file__))
         parameterFile = os.path.join(sourceCodeDir, "parameters.yaml")
         defaultParameters = os.path.join(sourceCodeDir, "defaultParameters.yaml")
         # Check if parameters.yaml exists and copy default if nonexistent
         if not os.path.exists(parameterFile):
-            shutil.copy(defaultParameters, parameterFile)
+            shutil.copy(defaultParameters, parameterFile) #copy default parameters
         #Load parameters
-        with open(parameterFile, "r") as file:
+        with open(parameterFile, "r") as file: #load parameters from file
             allParams = yaml.safe_load(file)
 
+        self.systemParameters = allParams["systemParameters"]
+        self.airportParameters = allParams["airportParameters"]
+        self.stateEstimationParameters = allParams["stateEstimationParameters"]
+        self.signalReceptionParameters = allParams["signalReceptionParameters"]
 
-        self.host = host
-        self.port = port
+        self.host = self.systemParameters["HOST"]
+        self.port = self.systemParameters["PORT"]
         self.time = self.TimeManager()
 
         #Initialize aircraft tracks dictionary
         self.aircraftTracks = defaultdict(lambda: {
-            "track": deque(maxlen=100000), #OGN message data
+            "track": deque(maxlen=self.systemParameters["DEQUE_LENGHT"]), #OGN message data
 
             #aircraft states
             "flightState": "unknown", #current calculated aicraft state
@@ -161,7 +151,7 @@ class OgnClient:
             d["reducedDataConfidence"] = d.get("flagged") == "!"
             d["relayed"] = bool(d.get("relayed"))
             d["distanceToAirport"] = self.distanceToAirport(d["lat"], d["lon"])
-            if not self.REALTIME_MODE:
+            if not self.systemParameters["REALTIME_MODE"]:
                 self.time.setSystemTimeAsynchronousMode(asyntime=d["time"]) #create a timestamp based on the time in the recieved message
             d["timestamp"] = self.time.getSystemTime()
             d["aicraftStates"] = {}
@@ -185,7 +175,7 @@ class OgnClient:
         return distance
     
     def distanceToAirport(self, lat, lon):
-        distanceToAirport = self.haversineDistance(lat, lon, self.AIRPORT_LATITUDE, self.AIRPORT_LONGITUDE)
+        distanceToAirport = self.haversineDistance(lat, lon, self.airportParameters["AIRPORT_LATITUDE"], self.airportParameters["AIRPORT_LONGITUDE"])
         return distanceToAirport
     
     def connectToOgnServer(self, sock):
@@ -210,10 +200,10 @@ class OgnClient:
         speed = lastDataPoint.get("speed", 0)
         distance = lastDataPoint.get("distanceToAirport", 0)
 
-        minAlt = self.AIRPORT_ALTITUDE - self.ALTITUDE_TOLERANCE
-        maxAlt = self.AIRPORT_ALTITUDE + self.ALTITUDE_TOLERANCE
-        maxSpeed = self.MAX_ON_GROUND_SPEED
-        maxDist = self.ON_GROUND_POSITION_RADIUS
+        minAlt = self.airportParameters["AIRPORT_ALTITUDE"] - self.stateEstimationParameters["ALTITUDE_TOLERANCE"]
+        maxAlt = self.airportParameters["AIRPORT_ALTITUDE"] + self.stateEstimationParameters["ALTITUDE_TOLERANCE"]
+        maxSpeed = self.stateEstimationParameters["MAX_ON_GROUND_SPEED"] / 3.6
+        maxDist = self.stateEstimationParameters["ON_GROUND_POSITION_RADIUS"]
 
         flgHeightGroundLevel = minAlt <= altitude <= maxAlt
         flgSpeedValidGound = speed <= maxSpeed
@@ -227,10 +217,10 @@ class OgnClient:
             flightState = "transitionAirGrnd"
         else:
             now = self.time.getSystemTime()
-            windowStart = now - timedelta(seconds=self.STATE_DETECTION_TIME_WINDOW)
+            windowStart = now - timedelta(seconds=self.stateEstimationParameters["STATE_DETECTION_TIME_WINDOW"])
             recentPoints = [p for p in track if p["timestamp"] >= windowStart]
             
-            if len(recentPoints) >= self.MIN_NUMBER_DATA_POINTS_STATE_ESTIMATION:
+            if len(recentPoints) >= self.stateEstimationParameters["MIN_NUMBER_DATA_POINTS_STATE_ESTIMATION"]:
                 avgAlt = mean(p["alt"] for p in recentPoints)
                 avgSpeed = mean(p["speed"] for p in recentPoints)
                 avgDist = mean(p["distanceToAirport"] for p in recentPoints)
@@ -262,10 +252,10 @@ class OgnClient:
             return "unknown"
 
         now = self.time.getSystemTime()
-        windowStart = now - timedelta(seconds=self.STATE_DETECTION_TIME_WINDOW)
+        windowStart = now - timedelta(seconds=self.stateEstimationParameters["STATE_DETECTION_TIME_WINDOW"])
         recentPoints = [p for p in track if p["timestamp"] >= windowStart]
 
-        if len(recentPoints) < self.NUMBER_OF_DATA_POINTS_FOR_STATE_ESTIMATION:
+        if len(recentPoints) < self.stateEstimationParameters["MIN_NUMBER_DATA_POINTS_STATE_ESTIMATION"]:
             if aircraft["stableState"] == "onGround":
                 return "onGround"
             else:
@@ -277,12 +267,12 @@ class OgnClient:
         avgLon = mean(p["lon"] for p in recentPoints)
         avgDist = mean(p["distanceToAirport"] for p in recentPoints)
 
-        minAltThres = self.AIRPORT_ALTITUDE - self.ALTITUDE_TOLERANCE
-        maxAltThres = self.AIRPORT_ALTITUDE + self.ALTITUDE_TOLERANCE
+        minAltThres = self.airportParameters["AIRPORT_ALTITUDE"] - self.stateEstimationParameters["ALTITUDE_TOLERANCE"]
+        maxAltThres = self.airportParameters["AIRPORT_ALTITUDE"] + self.stateEstimationParameters["ALTITUDE_TOLERANCE"]
 
-        if minAltThres <= avgAlt <= maxAltThres and avgSpeed <= self.MAX_ON_GROUND_SPEED: # and distanceToAirport <= self.ON_GROUND_POSITION_RADIUS
+        if minAltThres <= avgAlt <= maxAltThres and avgSpeed <= self.stateEstimationParameters["MAX_ON_GROUND_SPEED"] / 3.6: # and distanceToAirport <= self.ON_GROUND_POSITION_RADIUS
             return "onGround"
-        elif avgSpeed > self.MAX_ON_GROUND_SPEED:
+        elif avgSpeed > self.stateEstimationParameters["MAX_ON_GROUND_SPEED"] / 3.6:
             return "airborne"
         else:
             return "unknown"
@@ -295,7 +285,7 @@ class OgnClient:
         Free up valuable RAM.
         '''
         now = self.time.getSystemTime() #current time
-        cutoff = now - timedelta(seconds=self.BUFFER_SECONDS) #cutoff time, all older message will be deleted
+        cutoff = now - timedelta(seconds=self.systemParameters["STORAGE_DURATION_SECONDS"]) #cutoff time, all older message will be deleted
         for aircraftId, data in list(self.aircraftTracks.items()):
             track = data["track"]
             while track and track[0]["timestamp"] < cutoff:
@@ -317,7 +307,7 @@ class OgnClient:
         if newState != entry["stableState"]:
             timeInCurrentState = now - entry["lastStateChange"]
 
-            if timeInCurrentState >= timedelta(seconds=self.DEBOUNCE_TIME):
+            if timeInCurrentState >= timedelta(seconds=self.stateEstimationParameters["DEBOUNCE_TIME"]):
                 entry["prevStableState"] = entry["stableState"]
                 entry["stableState"] = newState
                 entry["lastStateChange"] = now
@@ -451,7 +441,7 @@ class OgnClient:
             data["reducedDataConfidence"] = data.get("flagged") == "!"
             data["distanceToAirport"] = self.distanceToAirport(data["lat"], data["lon"])
 
-            if not self.REALTIME_MODE:
+            if not self.systemParameters["REALTIME_MODE"]:
                 self.time.setSystemTimeAsynchronousMode(asyntime=data["time"])
             data["timestamp"] = self.time.getSystemTime()
             data["aicraftStates"] = {}
@@ -479,8 +469,8 @@ class OgnClient:
 
             lastTimestamp = track[-1]['timestamp'] #get last timestamp
 
-            heartbeatCutoff = now - timedelta(seconds=self.AIRCRAFT_HEARBEAT_MISSING_TIME) #cutoff time for missing heartbeat
-            lostCutoff = now - timedelta(seconds=self.AIRCRAFT_LOST_TIME) #cutoff time for lost aircraft
+            heartbeatCutoff = now - timedelta(seconds=self.signalReceptionParameters["AIRCRAFT_HEARBEAT_MISSING_TIME"]) #cutoff time for missing heartbeat
+            lostCutoff = now - timedelta(seconds=self.signalReceptionParameters["AIRCRAFT_LOST_TIME"]) #cutoff time for lost aircraft
 
             if lastTimestamp < lostCutoff:
                 newReceptionState = "aircraftLost" #cutoff time exceeded, aicraft lost
@@ -495,7 +485,7 @@ class OgnClient:
     
     def systemLoop(self):
         #Loop that executes while no new message is processed => maintanance
-        if self.REALTIME_MODE:
+        if self.systemParameters["REALTIME_MODE"]:
             self.time.setSystemTime() #set system time
         self.removeOldTracks() #remove old track data
         self.monitorSignalReception() #monitor the signal reception from all aircrafts
@@ -518,9 +508,9 @@ class OgnClient:
                         buffer += data.decode(errors='ignore')
                         processedCount = 0  #Counter for number of recieved messages
 
-                        while '\n' in buffer and processedCount < self.MAXIMUM_MESSAGES_IN_BUFFER:
+                        while '\n' in buffer and processedCount < self.systemParameters["MAXIMUM_MESSAGES_IN_INPUT_BUFFER"]:
                             processedCount += 1
-                            if self.REALTIME_MODE:
+                            if self.systemParameters["REALTIME_MODE"]:
                                 self.time.setSystemTime() #set system time
 
                             line, buffer = buffer.split('\n', 1)
