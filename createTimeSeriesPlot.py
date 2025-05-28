@@ -28,7 +28,7 @@ def plotFlightProfileFromTrack(track):
     
     subStates = [p.get("flightSubState", "none") for p in track]
     receptionStates = [p.get("receptionState", "normal") for p in track]
-    stableState = [p["stableFlightState"] for p in track]
+    stableState = [p["aircraftStates"]["stableState"] for p in track]
 
     flightStateVals, flightStateLabels = mapStates(flightStates)
     realayedVals, relayedStateLabels = mapStates(relayed)
