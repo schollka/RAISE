@@ -333,15 +333,14 @@ class OgnClient:
         return flgStableStateChanged, newStatesDict
     
     def detectFlightEvent(self, aircraftId, stateChanged = True):
+        aircraft = self.aircraftTracks[aircraftId] #get the corresponding aircraft
+        track = aircraft["track"] #get its data
+        if not track:
+            return #abort if no data is present    
+        lastDataPoint = track[-1] #get the newest data point in the track data
+        
         if stateChanged:
-            aircraft = self.aircraftTracks[aircraftId] #get the corresponding aircraft
 
-            track = aircraft["track"] #get its data
-
-            if not track:
-                return #abort if no data is present
-            
-            lastDataPoint = track[-1] #get the newest data point in the track data
 
             currentState = aircraft["stableState"]
             prevState = aircraft["prevStableState"]
@@ -444,6 +443,7 @@ class OgnClient:
                 flightState = "unknown" #if not enough points are present for a robust average, then the aircrafts state is unknown
 
         flgStableStateChanged, newStates = self.debounceFlightState(aircraftId, flightState) #debounce the computed state
+        self.detectFlightEvent(aircraftId=aircraftId, stateChanged=flgStableStateChanged)
 
 
         #write all current states (state, stableState, ...) into the corresponding deque entry for storage
