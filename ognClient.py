@@ -353,17 +353,26 @@ class OgnClient:
             else:
                 takeOff = False
 
+            if prevState == "airborne" and currentState == "onGround":
+                touchDown = True
+            elif (prevPrevState in {"airborne", "landing", "transitionAirGrnd"} 
+                  and prevState in {"landing", "transitionAirGrnd"}
+                  and currentState == "onGround"):
+                touchDown = True
+            else:
+                touchDown = False 
+
             if takeOff:
                 print("Detected TakeOff")
-
-            landing = False
+            if touchDown:
+                print("Detected TouchDown")
 
             eventDict = self.createPlaceHolderFlightEvent()
             eventDict["detectedTakeOff"] = takeOff
-            eventDict["detectedTouchDown"] = landing
+            eventDict["detectedTouchDown"] = touchDown
 
             aircraft["detectedTakeOff"] = takeOff
-            aircraft["detectedTouchDown"] = landing
+            aircraft["detectedTouchDown"] = touchDown
             lastDataPoint["flightEvent"] = eventDict
         
         else:
