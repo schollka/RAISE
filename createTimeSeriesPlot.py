@@ -25,18 +25,21 @@ def plotAltSpeedAndStates(track):
     aircraftStatesDict = [p.get("aircraftStates", {}) for p in track]
     flightStates = [p.get("flightState", "unknown") for p in aircraftStatesDict]
     
-    subStates = [p.get("flightSubState", "none") for p in track]
     stableState = [p["aircraftStates"]["stableState"] for p in track]
     prevStableState = [p["aircraftStates"]["prevStableState"] for p in track]
     prevPrevStableState = [p["aircraftStates"]["prevPrevStableState"] for p in track]
 
-    flightStateVals, flightStateLabels = mapStates(flightStates)
+    detectedTakeOff = [p["flightEvent"]["detectedTakeOff"] for p in track]
+    detectedTouchDown = [p["flightEvent"]["detectedTouchDown"] for p in track]
 
+    flightStateVals, flightStateLabels = mapStates(flightStates)
     stableStateVals, stableStateLabels = mapStates(stableState)
     prevStableStateVals, prevStableStateLabels = mapStates(prevStableState)
     prevPrevStableStateVals, prevPrevStableStateLabels = mapStates(prevPrevStableState)
+    detectedTakeOffVals, detectedTakeOffLabels = mapStates(detectedTakeOff)
+    detectedTouchDownVals, detectedTouchDownLabels = mapStates(detectedTouchDown)
 
-    fig, axs = plt.subplots(4, 1, figsize=(15, 10), sharex=True, gridspec_kw={"height_ratios": [3, 1, 1, 1]})
+    fig, axs = plt.subplots(5, 1, figsize=(15, 10), sharex=True, gridspec_kw={"height_ratios": [2, 1, 1, 1, 1]})
 
     # Plot 1: Geschwindigkeit und Höhe
     ax1 = axs[0]
@@ -63,8 +66,21 @@ def plotAltSpeedAndStates(track):
     axs[2].set_yticklabels(stableStateLabels)
     axs[2].set_ylabel("stableState")
 
-    # Plot 4: prevStableState and prevPrevStableState
+    # Plot 4: detectedTakeOff and detectedTouchDown
     ax1 = axs[3]
+    ax1.step(timestamps, detectedTakeOffVals, where="post", label="detectedTakeOff", color="tab:blue")
+    ax1.set_yticks(range(len(detectedTakeOffLabels)))
+    ax1.set_yticklabels(detectedTakeOffLabels, color="tab:blue")
+    ax1.set_ylabel("detectedTakeOff", color="tab:blue")
+
+    ax2 = ax1.twinx()
+    ax2.step(timestamps, detectedTouchDownVals, where="post", label="detectedTouchDown", color="tab:orange")
+    ax2.set_yticks(range(len(detectedTouchDownLabels)))
+    ax2.set_yticklabels(detectedTouchDownLabels, color="tab:orange")
+    ax2.set_ylabel("detectedTouchDown", color="tab:orange")
+
+    # Plot 5: prevStableState and prevPrevStableState
+    ax1 = axs[4]
     ax1.step(timestamps, prevStableStateVals, where="post", label="prevStableState", color="tab:blue")
     ax1.set_yticks(range(len(prevStableStateLabels)))
     ax1.set_yticklabels(prevStableStateLabels, color="tab:blue")
