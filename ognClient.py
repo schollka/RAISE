@@ -36,6 +36,8 @@ class OgnClient:
         self.port = self.systemParameters["PORT"]
         self.time = self.TimeManager()
 
+        print(self.time.getSystemTime())
+
         #Initialize aircraft tracks dictionary
         self.aircraftTracks = defaultdict(lambda: {
             "track": deque(maxlen=self.systemParameters["DEQUE_LENGHT"]), #OGN message data
@@ -44,7 +46,10 @@ class OgnClient:
             "flightState": "unknown", #current calculated aicraft state
             "flightSubState": None, #substate for the "airborne" flightState
             "stableState": "unknown", #as stable determined aicraft state
+            "pendingState": {"state": "unknown", "timestamp": self.time.getSystemTime()},
             "prevStableState": "unknown", #previos stable aicraft state
+
+
             "lastStateChange": self.time.getSystemTime(), #time of last state change
             "lastAirborneTime": None, #last time when the aicraft was stable airborne
 
@@ -183,10 +188,57 @@ class OgnClient:
         sock.connect((self.host, self.port))
         print("Connected. Waiting for OGN data...\n")
 
-    def debounceStateMachine(self, aircraftID, stateKey, stateValue):
-        print("a")
+    def debounceFlightState(self, aircraftId, newState):
+        flgStableStateChanged = False
+        now = self.time.getSystemTime()
+        data = self.aircraftTracks[aircraftId]
 
+        currentStableState = data["stableState"]
+        prevStableState = data["prevStableState"]
+        pendingStateState = data["pendingState"]["state"]
+        pendingStatetimestamp = data["pendingState"]["timestamp"]
 
+        data["state"] = newState
+        #zustand hat sich geändert
+        if newState == currentStableState:
+            newStableState = currentStableState
+            newPrevStableState = prevStableState
+            newPendingState = {"state": pendingStateState,
+                               "timestamp": pendingStatetimestamp}
+        else:
+            if newState == pendingStateState:
+                if now - pendingStatetimestamp >= timedelta(seconds=self.stateEstimationParameters["DEBOUNCE_TIME"]):
+                    newStableState = newState
+                    newPrevStableState = currentStableState
+                    newPendingState = {"state": newState,
+                                       "timestamp": now}
+                    
+                    data["stableState"] = newStableState
+                    data["prevStableState"] = newPrevStableState
+                    data["pendingState"] = newPendingState
+                    flgStableStateChanged = True
+                else:
+                    newStableState = currentStableState
+                    newPrevStableState = prevStableState
+                    newPendingState = {"state": pendingStateState,
+                                    "timestamp": pendingStatetimestamp}
+            else:
+                newStableState = currentStableState
+                newPrevStableState = currentStableState
+                newPendingState = {"state": newState,
+                                   "timestamp": now}
+                data["pendingState"] = newPendingState
+
+        
+        newStates = {
+            "flightState": newState,
+            "stableState": newStableState,
+            "prevStableState": newPrevStableState,
+            "pendingState": newPendingState,
+        }
+
+        return flgStableStateChanged, newStates
+   
     def stateMachine(self, aircraftId):
         aircraft = self.aircraftTracks[aircraftId]
         track = aircraft["track"]
@@ -240,9 +292,10 @@ class OgnClient:
             else:
                 flightState = "unknown"
 
-        aircraft["flighState"] = flightState
+        flgStableStateChanged, newStates = self.debounceFlightState(aircraftId, flightState)
+
         lastDataPoint["aircraftStates"] = lastDataPoint.get("aircraftStates", {})
-        lastDataPoint["aircraftStates"]["flightState"] = flightState
+        lastDataPoint["aircraftStates"] = newStates
 
     def detectFlightState(self, aircraftId):
         aircraft = self.aircraftTracks[aircraftId]
