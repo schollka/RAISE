@@ -12,26 +12,47 @@ import os
 import shutil
 
 ####################################################
-################# auxillary functions ##############
-####################################################
-
-def safeFloat(value, default=0.0):
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return default
-
-def safeInt(value, default=0):
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        return default
-
-####################################################
 ################# OGN Client #######################
 ####################################################
 
 class OgnClient:
+    ####################################################
+    ################# auxillary functions ##############
+    ####################################################
+
+    def safeFloat(value, default=0.0):
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return default
+
+    def safeInt(value, default=0):
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return default
+        
+    def createPlaceHolderPendingState(self):
+        return {
+            "state": "unknown",
+            "timestamp": self.time.getSystemTime()
+        }
+
+    def createPlaceHolderAircraftStates(self):
+        return {
+            "flightState": "unknown",
+            "stableState": "unknown",
+            "prevStableState": "unknown",
+            "prevPrevStableState": "unknown",
+            "pendingState": self.createPlaceHolderPendingState(),
+        }
+    
+    def createPlaceHolderFlightEvent(self):
+        return {
+            "detectedTakeOff": False,
+            "detectedLanding": False
+        }
+
     def __init__(self):
         '''
         Set up the OGN-Client and all its needed parameters
@@ -74,9 +95,13 @@ class OgnClient:
             "flightState": "unknown", #current calculated aircraft state
             "flightSubState": None, #substate for the "airborne" and "transitionAirGrnd" flightState
             "stableState": "unknown", #currently as stable determined aircraft state
-            "pendingState": {"state": "unknown", "timestamp": self.time.getSystemTime()}, #pending states, currently in debounce
+            "pendingState": self.createPlaceHolderPendingState(), #pending states, currently in debounce
             "prevStableState": "unknown", #previos stable aircraft state
             "prevPrevStableState": "unknown", #previous previous stable aircraft state
+
+            #flight events
+            "detectedTakeOff": False, #boolean state if a take-off was detected with this data point
+            "detectedLanding": False, #boolean state if a landing was detected with this data point
 
 
             "lastStateChange": self.time.getSystemTime(), #time of last state change
@@ -199,7 +224,8 @@ class OgnClient:
             if not self.systemParameters["REALTIME_MODE"]: #switch for realtime operation or asynchrone operation
                 self.time.setSystemTimeAsynchronousMode(asyntime=d["time"]) #create a timestamp based on the time in the recieved message
             d["timestamp"] = self.time.getSystemTime()
-            d["aircraftStates"] = {}
+            d["aircraftStates"] = self.createPlaceHolderAircraftStates()
+            d["flightEvents"] = self.createPlaceHolderFlightEvent()
         except Exception as e:
             print(f"OGN message parsing error: {e}")
             return None
@@ -309,6 +335,10 @@ class OgnClient:
     
     def detectFlightEvent(self, aircraftId):
         aircraft = self.aircraftTracks[aircraftId] #get the corresponding aircraft
+
+        #TODO write logic
+
+        aircraft["detectedTakeOff"] = True
 
    
     def stateMachine(self, aircraftId):
@@ -498,23 +528,23 @@ class OgnClient:
         #this is used, when the system operates in asynchrone mode and the data is already present in a dictionary
         try:
             #get and convert recieved data
-            data["recvTime"] = safeFloat(data.get("recvTime"))
-            data["freq"] = safeFloat(data.get("frequency"))
-            data["time"] = safeInt(data.get("ognTime"))
-            data["lat"] = safeFloat(data["lat"])
-            data["lon"] = safeFloat(data["lon"])
-            data["alt"] = safeInt(data["altitude"])
-            data["vs"] = safeFloat(data["climbRate"])
-            data["speed"] = safeFloat(data["groundSpeed"])
-            data["track"] = safeFloat(data["track"])
-            data["turnRate"] = safeFloat(data["turnRate"])
-            data["snr"] = safeFloat(data.get("snr"))
-            data["rssi"] = safeFloat(data.get("rssi"))
-            data["errCount"] = safeInt(data.get("errCount"))
-            data["eStatus"] = safeInt(data.get("eStatus"))
-            data["distance"] = safeFloat(data.get("distance"))
-            data["bearing"] = safeFloat(data.get("bearing"))
-            data["elevAngle"] = safeFloat(data.get("elevAngle"))
+            data["recvTime"] = self.safeFloat(data.get("recvTime"))
+            data["freq"] = self.safeFloat(data.get("frequency"))
+            data["time"] = self.safeInt(data.get("ognTime"))
+            data["lat"] = self.safeFloat(data["lat"])
+            data["lon"] = self.safeFloat(data["lon"])
+            data["alt"] = self.safeInt(data["altitude"])
+            data["vs"] = self.safeFloat(data["climbRate"])
+            data["speed"] = self.safeFloat(data["groundSpeed"])
+            data["track"] = self.safeFloat(data["track"])
+            data["turnRate"] = self.safeFloat(data["turnRate"])
+            data["snr"] = self.safeFloat(data.get("snr"))
+            data["rssi"] = self.safeFloat(data.get("rssi"))
+            data["errCount"] = self.safeInt(data.get("errCount"))
+            data["eStatus"] = self.safeInt(data.get("eStatus"))
+            data["distance"] = self.safeFloat(data.get("distance"))
+            data["bearing"] = self.safeFloat(data.get("bearing"))
+            data["elevAngle"] = self.safeFloat(data.get("elevAngle"))
             data["relayed"] = bool(data.get("relayed", False))
             data["reducedDataConfidence"] = data.get("flagged") == "!"
             data["distanceToAirport"] = self.distanceToAirport(data["lat"], data["lon"])
@@ -522,7 +552,8 @@ class OgnClient:
             if not self.systemParameters["REALTIME_MODE"]:
                 self.time.setSystemTimeAsynchronousMode(asyntime=data["time"])
             data["timestamp"] = self.time.getSystemTime() #set time stamp
-            data["aircraftStates"] = {}
+            data["aircraftStates"] = self.createPlaceHolderAircraftStates()
+            data["flightEvents"] = self.createPlaceHolderFlightEvent()
 
         except Exception as e:
             print(f"Fehler beim Verarbeiten der OGN-Daten: {e}")
