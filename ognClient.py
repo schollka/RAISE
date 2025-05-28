@@ -13,9 +13,9 @@ class OgnClient:
     BUFFER_SECONDS = 300
     LANDING_LOOKBACK_SECONDS = 15
     AIRPORT_ALTITUDE = 266
-    ALTITUDE_TOLERANCE = 40
+    ALTITUDE_TOLERANCE = 25
     MAX_ON_GROUND_SPEED = 25 / 3.6
-    STATE_DETECTION_TIME_WINDOW = 20
+    STATE_DETECTION_TIME_WINDOW = 30
     AIRPORT_LATITUDE = 49.002222
     AIRPORT_LONGITUDE = 9.086389
     ON_GROUND_POSITION_RADIUS = 750
@@ -178,7 +178,7 @@ class OgnClient:
         sock.connect((self.host, self.port))
         print("Connected. Waiting for OGN data...\n")
 
-    def debounceStateMachine(self, aircraftID, currentState):
+    def debounceStateMachine(self, aircraftID, stateKey, stateValue):
         print("a")
 
 
@@ -211,8 +211,28 @@ class OgnClient:
         elif flgHeightGroundLevel and flgInsideAirportBoundaries and not flgSpeedValidGound:
             flightState = "transitionAirGrnd"
         else:
-            flightState = "unknown"
+            now = self.time.getSystemTime()
+            windowStart = now - timedelta(seconds=self.STATE_DETECTION_TIME_WINDOW)
+            recentPoints = [p for p in track if p["timestamp"] >= windowStart]
+            
+            avgAlt = mean(p["alt"] for p in recentPoints)
+            avgSpeed = mean(p["speed"] for p in recentPoints)
+            avgDist = mean(p["distanceToAirport"] for p in recentPoints)
 
+            flgAvrHeightGroundLevel = minAlt <= avgAlt <= maxAlt
+            flgAvrSpeedValidGound = avgSpeed <= maxSpeed
+            flgAvrInsideAirportBoundaries = avgDist <= maxDist
+
+            if flgAvrHeightGroundLevel and flgAvrSpeedValidGound and flgAvrInsideAirportBoundaries:
+                flightState = "onGround"
+            elif not flgAvrHeightGroundLevel and not flgAvrSpeedValidGound:
+                flightState = "airborne"
+            elif flgAvrHeightGroundLevel and flgAvrInsideAirportBoundaries and not flgAvrSpeedValidGound:
+                flightState = "transitionAirGrnd"
+            else:
+                flightState = "unknown"
+
+        aircraft["flighState"] = flightState
         lastDataPoint["aircraftStates"] = lastDataPoint.get("aircraftStates", {})
         lastDataPoint["aircraftStates"]["flightState"] = flightState
 
