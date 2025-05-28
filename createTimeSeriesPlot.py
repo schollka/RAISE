@@ -27,14 +27,14 @@ def plotAltSpeedAndStates(track):
     
     subStates = [p.get("flightSubState", "none") for p in track]
     stableState = [p["aircraftStates"]["stableState"] for p in track]
+    prevStableState = [p["aircraftStates"]["prevStableState"] for p in track]
+    prevPrevStableState = [p["aircraftStates"]["prevPrevStableState"] for p in track]
 
     flightStateVals, flightStateLabels = mapStates(flightStates)
-    realayedVals, relayedStateLabels = mapStates(relayed)
-    dataConfVals, dataConfLabels = mapStates(reducedDataConfidence)
 
-    
-    subStateVals, subStateLabels = mapStates(subStates)
     stableStateVals, stableStateLabels = mapStates(stableState)
+    prevStableStateVals, prevStableStateLabels = mapStates(prevStableState)
+    prevPrevStableStateVals, prevPrevStableStateLabels = mapStates(prevPrevStableState)
 
     fig, axs = plt.subplots(4, 1, figsize=(15, 10), sharex=True, gridspec_kw={"height_ratios": [3, 1, 1, 1]})
 
@@ -49,7 +49,7 @@ def plotAltSpeedAndStates(track):
     ax2.set_ylabel("Altitude [m]", color="tab:orange")
     ax2.tick_params(axis='y', labelcolor="tab:orange")
 
-    ax1.set_title("Flugprofil: Geschwindigkeit & Höhe")
+    ax1.set_title("Time Series Flight Data")
 
     # Plot 2: flightState
     axs[1].step(timestamps, flightStateVals, where="post", label="flightState", color="tab:green")
@@ -57,26 +57,24 @@ def plotAltSpeedAndStates(track):
     axs[1].set_yticklabels(flightStateLabels)
     axs[1].set_ylabel("flightState")
 
+    # Plot 3: stableState
+    axs[2].step(timestamps, stableStateVals, where="post", label="stableStates", color="tab:purple")
+    axs[2].set_yticks(range(len(stableStateLabels)))
+    axs[2].set_yticklabels(stableStateLabels)
+    axs[2].set_ylabel("stableState")
 
-
-    # Plot 1: relayed and data confidence
-    ax1 = axs[2]
-    ax1.step(timestamps, realayedVals, where="post", label="relayedVals", color="tab:blue")
-    ax1.set_yticks(range(len(relayedStateLabels)))
-    ax1.set_yticklabels(relayedStateLabels, color="tab:blue")
-    ax1.set_ylabel("relayed", color="tab:blue")
+    # Plot 4: prevStableState and prevPrevStableState
+    ax1 = axs[3]
+    ax1.step(timestamps, prevStableStateVals, where="post", label="prevStableState", color="tab:blue")
+    ax1.set_yticks(range(len(prevStableStateLabels)))
+    ax1.set_yticklabels(prevStableStateLabels, color="tab:blue")
+    ax1.set_ylabel("prevStableState", color="tab:blue")
 
     ax2 = ax1.twinx()
-    ax2.step(timestamps, dataConfVals, where="post", label="dataConfidence", color="tab:orange")
-    ax2.set_yticks(range(len(dataConfLabels)))
-    ax2.set_yticklabels(dataConfLabels, color="tab:orange")
-    ax2.set_ylabel("dataConfidence", color="tab:orange")
-
-    # Plot 3: stableState
-    axs[3].step(timestamps, stableStateVals, where="post", label="stableStates", color="tab:purple")
-    axs[3].set_yticks(range(len(stableStateLabels)))
-    axs[3].set_yticklabels(stableStateLabels)
-    axs[3].set_ylabel("stableState")
+    ax2.step(timestamps, prevPrevStableStateVals, where="post", label="prevPrevStableState", color="tab:orange")
+    ax2.set_yticks(range(len(prevPrevStableStateLabels)))
+    ax2.set_yticklabels(prevPrevStableStateLabels, color="tab:orange")
+    ax2.set_ylabel("prevPrevStableState", color="tab:orange")
 
 
     # Achsen formatieren
