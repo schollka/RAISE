@@ -75,8 +75,8 @@ def plotFlightProfileFromTrack(track):
     ax2 = ax1.twinx()
     ax2.step(timestamps, dataConfVals, where="post", label="dataConfidence", color="tab:orange")
     ax2.set_yticks(range(len(dataConfLabels)))
-    ax2.set_yticklabels(dataConfLabels, color="tab:blue")
-    ax2.set_ylabel("dataConfidence", color="tab:blue")
+    ax2.set_yticklabels(dataConfLabels, color="tab:orange")
+    ax2.set_ylabel("dataConfidence", color="tab:orange")
 
     # Plot 3: stableState
     axs[3].step(timestamps, stableStateVals, where="post", label="stableStates", color="tab:purple")
