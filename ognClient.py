@@ -50,7 +50,7 @@ class OgnClient:
     def createPlaceHolderFlightEvent(self):
         return {
             "detectedTakeOff": False,
-            "detectedLanding": False
+            "detectedTouchDown": False
         }
 
     def __init__(self):
@@ -101,7 +101,7 @@ class OgnClient:
 
             #flight events
             "detectedTakeOff": False, #boolean state if a take-off was detected with this data point
-            "detectedLanding": False, #boolean state if a landing was detected with this data point
+            "detectedTouchDown": False, #boolean state if a landing was detected with this data point
 
 
             "lastStateChange": self.time.getSystemTime(), #time of last state change
@@ -323,23 +323,55 @@ class OgnClient:
                 aircraft["pendingState"] = newPendingState
 
         #create return dictionary
-        newStates = {
-            "flightState": newState,
-            "stableState": newStableState,
-            "prevStableState": newPrevStableState,
-            "prevPrevStableState": newPrevPrevStableState,
-            "pendingState": newPendingState,
-        }
+        newStatesDict = self.createPlaceHolderAircraftStates()
+        newStatesDict["flightState"] = newState
+        newStatesDict["stableState"] = newStableState
+        newStatesDict["prevStableState"] = newPrevStableState
+        newStatesDict["prevPrevStableState"] = newPrevPrevStableState
+        newStatesDict["pendingState"] = newPendingState
 
-        return flgStableStateChanged, newStates
+        return flgStableStateChanged, newStatesDict
     
-    def detectFlightEvent(self, aircraftId):
-        aircraft = self.aircraftTracks[aircraftId] #get the corresponding aircraft
+    def detectFlightEvent(self, aircraftId, stateChanged = True):
+        if stateChanged:
+            aircraft = self.aircraftTracks[aircraftId] #get the corresponding aircraft
 
-        #TODO write logic
+            track = aircraft["track"] #get its data
 
-        aircraft["detectedTakeOff"] = True
+            if not track:
+                return #abort if no data is present
+            
+            lastDataPoint = track[-1] #get the newest data point in the track data
 
+            currentState = aircraft["stableState"]
+            prevState = aircraft["prevStableState"]
+            prevPrevState = aircraft["prevPrevStableState"]
+
+            if prevState == "onGround" and currentState == "airborne":
+                takeOff = True
+            elif prevPrevState == "onGround" and prevState == "transitionAirGrnd" and currentState == "airborne":
+                takeOff = True
+            else:
+                takeOff = False
+
+            if takeOff:
+                print("Detected TakeOff")
+
+            landing = False
+
+            eventDict = self.createPlaceHolderFlightEvent()
+            eventDict["detectedTakeOff"] = takeOff
+            eventDict["detectedTouchDown"] = landing
+
+            aircraft["detectedTakeOff"] = takeOff
+            aircraft["detectedTouchDown"] = landing
+            lastDataPoint["flightEvent"] = eventDict
+        
+        else:
+            eventDict = self.createPlaceHolderFlightEvent()
+            aircraft["detectedTakeOff"] = eventDict["detectedTakeOff"]
+            aircraft["detectedTouchDown"] = eventDict["detectedTouchDown"]
+            lastDataPoint["flightEvent"] = eventDict
    
     def stateMachine(self, aircraftId):
         '''
@@ -415,7 +447,7 @@ class OgnClient:
 
 
         #write all current states (state, stableState, ...) into the corresponding deque entry for storage
-        lastDataPoint["aircraftStates"] = lastDataPoint.get("aircraftStates", {})
+        lastDataPoint["aircraftStates"] = lastDataPoint.get("aircraftStates", self.createPlaceHolderAircraftStates())
         lastDataPoint["aircraftStates"] = newStates 
 
     def removeOldTracks(self):
