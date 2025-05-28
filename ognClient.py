@@ -5,11 +5,31 @@ from datetime import datetime, timedelta, timezone, time
 from statistics import mean
 from math import radians, sin, cos, sqrt, atan2
 import select
-from auxillaryFunctions import safeFloat, safeInt
+#from auxillaryFunctions import safeFloat, safeInt
 from databankHandler import saveTrack
 import yaml
 import os
 import shutil
+
+####################################################
+################# auxillary functions ##############
+####################################################
+
+def safeFloat(value, default=0.0):
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+def safeInt(value, default=0):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+####################################################
+################# OGN Client #######################
+####################################################
 
 class OgnClient:
     def __init__(self):
@@ -361,11 +381,11 @@ class OgnClient:
         The additional data is not necessary for the landing detection.
         Free up valuable RAM.
         '''
-        now = self.time.getSystemTime() #current time
+        now = self.time.getSystemTime() #get current time
         cutoff = now - timedelta(seconds=self.systemParameters["STORAGE_DURATION_SECONDS"]) #cutoff time, all older message will be deleted
         for aircraftId, data in list(self.aircraftTracks.items()):
             track = data["track"]
-            while track and track[0]["timestamp"] < cutoff:
+            while track and track[0]["timestamp"] < cutoff: #if data is to old
                 track.popleft() #delete data
             if not track:
                 del self.aircraftTracks[aircraftId] #delete aircraft entry when no data points are left
@@ -434,6 +454,7 @@ class OgnClient:
 
     
     def processMessageLine(self, line):
+        #used when the system runs in synchrone mode and recieves data from ogn-decode
         parsed = self.parseOgnLine(line)
         if not parsed:
             return
@@ -443,6 +464,7 @@ class OgnClient:
         self.stateMachine(aircraftId)
 
     def printInfos(self):
+        #print basic infos to the terminal
         print("------------------------------------")
         for aircraftId, trackInfo in self.aircraftTracks.items():
             if trackInfo["track"]:
@@ -460,8 +482,9 @@ class OgnClient:
         print("------------------------------------")
        
     def processMessageDict(self, data):
+        #this is used, when the system operates in asynchrone mode and the data is already present in a dictionary
         try:
-            # Sicher konvertieren
+            #get and convert recieved data
             data["recvTime"] = safeFloat(data.get("recvTime"))
             data["freq"] = safeFloat(data.get("frequency"))
             data["time"] = safeInt(data.get("ognTime"))
@@ -485,7 +508,7 @@ class OgnClient:
 
             if not self.systemParameters["REALTIME_MODE"]:
                 self.time.setSystemTimeAsynchronousMode(asyntime=data["time"])
-            data["timestamp"] = self.time.getSystemTime()
+            data["timestamp"] = self.time.getSystemTime() #set time stamp
             data["aircraftStates"] = {}
 
         except Exception as e:
@@ -493,8 +516,8 @@ class OgnClient:
             return
 
         aircraftId = data["aircraft"]
-        self.aircraftTracks[aircraftId]["track"].append(data)
-        self.stateMachine(aircraftId=aircraftId)
+        self.aircraftTracks[aircraftId]["track"].append(data) #store data in deque
+        self.stateMachine(aircraftId=aircraftId) #compute the state of the aircraft
 
 
     def monitorSignalReception(self):
@@ -502,7 +525,7 @@ class OgnClient:
         Finite state machine for the signal reception status.
         Classifies if messages are recieved normal or if the time since the last message is to long
         '''
-        now = self.time.getSystemTime() #current time
+        now = self.time.getSystemTime() #get current time
         for aircraftId, data in list(self.aircraftTracks.items()): #loop over aircrafts
             track = data["track"] #get track data
             if not track:
@@ -532,38 +555,43 @@ class OgnClient:
         self.monitorSignalReception() #monitor the signal reception from all aircrafts
 
     def runClient(self):
+        '''
+        run the client in a loop and constantly process the from ogn-decode recieved data.
+        if no message is recieved then perform the needed realtime data maintanance
+        '''
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-            self.connectToOgnServer(sock)
-            buffer = ""
+            self.connectToOgnServer(sock) #connect to the server
+            buffer = "" #buffer for the recieved messages
             
             try:
                 while True:
                     ready, _, _ = select.select([sock], [], [], 0)
 
                     if ready:
-                        data = sock.recv(4096)
+                        data = sock.recv(4096) #get data from socket
                         if not data:
                             print("Connection closed by server.")
                             break
 
-                        buffer += data.decode(errors='ignore')
+                        buffer += data.decode(errors='ignore') #store the recieved data in a buffer
                         processedCount = 0  #Counter for number of recieved messages
 
+                        #process the messages in the buffer, a limit to how many messages can be processed is enforced
                         while '\n' in buffer and processedCount < self.systemParameters["MAXIMUM_MESSAGES_IN_INPUT_BUFFER"]:
                             processedCount += 1
                             if self.systemParameters["REALTIME_MODE"]:
                                 self.time.setSystemTime() #set system time
 
-                            line, buffer = buffer.split('\n', 1)
+                            line, buffer = buffer.split('\n', 1) #get a line from the buffer
                             line = line.strip()
-                            if not line or not line[0].isdigit():
+                            if not line or not line[0].isdigit(): #if the revieved line is not an aircraft data package then continue
                                 continue
                             
-                            self.processMessageLine(line)
-                            self.removeOldTracks()
+                            self.processMessageLine(line) #process the recieved data
+                            self.removeOldTracks() #remove old data from the RAM
 
                         if '\n' in buffer:
-                            buffer = '' #delete remaining buffer contents
+                            buffer = '' #delete remaining buffer contents if too many messages were processed
 
                     else:
                         #this executes, when no new messages are processed
