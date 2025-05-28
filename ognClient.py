@@ -355,40 +355,6 @@ class OgnClient:
         lastDataPoint["aircraftStates"] = lastDataPoint.get("aircraftStates", {})
         lastDataPoint["aircraftStates"] = newStates 
 
-    def detectFlightState(self, aircraftId):
-        aircraft = self.aircraftTracks[aircraftId]
-        track = aircraft["track"]
-
-        if not track:
-            return "unknown"
-
-        now = self.time.getSystemTime()
-        windowStart = now - timedelta(seconds=self.stateEstimationParameters["STATE_DETECTION_TIME_WINDOW"])
-        recentPoints = [p for p in track if p["timestamp"] >= windowStart]
-
-        if len(recentPoints) < self.stateEstimationParameters["MIN_NUMBER_DATA_POINTS_STATE_ESTIMATION"]:
-            if aircraft["stableState"] == "onGround":
-                return "onGround"
-            else:
-                return "unknown"
-
-        avgAlt = mean(p["alt"] for p in recentPoints)
-        avgSpeed = mean(p["speed"] for p in recentPoints)
-        avgLat = mean(p["lat"] for p in recentPoints)
-        avgLon = mean(p["lon"] for p in recentPoints)
-        avgDist = mean(p["distanceToAirport"] for p in recentPoints)
-
-        minAltThres = self.airportParameters["AIRPORT_ALTITUDE"] - self.stateEstimationParameters["ALTITUDE_TOLERANCE"]
-        maxAltThres = self.airportParameters["AIRPORT_ALTITUDE"] + self.stateEstimationParameters["ALTITUDE_TOLERANCE"]
-
-        if minAltThres <= avgAlt <= maxAltThres and avgSpeed <= self.stateEstimationParameters["MAX_ON_GROUND_SPEED"] / 3.6: # and distanceToAirport <= self.ON_GROUND_POSITION_RADIUS
-            return "onGround"
-        elif avgSpeed > self.stateEstimationParameters["MAX_ON_GROUND_SPEED"] / 3.6:
-            return "airborne"
-        else:
-            return "unknown"
-
-
     def removeOldTracks(self):
         '''
         Remove all data points that are older then the maximum set time.
@@ -409,41 +375,6 @@ class OgnClient:
         saveTrack(track, dbPath)
         print(f"\n[DB] Dumping {len(track)} points for {aircraftId} to database.")
         # TODO: Replace with actual DB logic
-
-    def debounceState(self, aircraftId, newState):
-        entry = self.aircraftTracks[aircraftId]
-        now = self.time.getSystemTime()
-
-        # Falls sich der Zustand geändert hat (z. B. onGround → airborne)
-        if newState != entry["stableState"]:
-            timeInCurrentState = now - entry["lastStateChange"]
-
-            if timeInCurrentState >= timedelta(seconds=self.stateEstimationParameters["DEBOUNCE_TIME"]):
-                entry["prevStableState"] = entry["stableState"]
-                entry["stableState"] = newState
-                entry["lastStateChange"] = now
-
-                # Wenn stabiler Zustand jetzt 'airborne' ist → Zeit merken
-                if newState == "airborne":
-                    entry["lastAirborneTime"] = now
-
-                if entry["track"]:
-                    entry["track"][-1]["stableFlightState"] = newState
-            else:
-                if entry["track"]:
-                    entry["track"][-1]["stableFlightState"] = entry["stableState"]
-
-                return True
-
-        else:
-            # Zustand gleich geblieben → Zeitstempel aktualisieren
-            entry["lastStateChange"] = now
-
-            if entry["track"]:
-                entry["track"][-1]["stableFlightState"] = newState
-
-        return False
-
     
     def detectFlightSubState(self, track):
         """
@@ -509,7 +440,7 @@ class OgnClient:
 
         aircraftId = parsed["aircraft"]
         self.aircraftTracks[aircraftId]["track"].append(parsed)
-        self.updateFlightState(aircraftId)
+        self.stateMachine(aircraftId)
 
     def printInfos(self):
         print("------------------------------------")
