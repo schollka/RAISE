@@ -5,7 +5,6 @@ from datetime import datetime, timedelta, timezone, time
 from statistics import mean
 from math import radians, sin, cos, sqrt, atan2
 import select
-#from auxillaryFunctions import safeFloat, safeInt
 from databankHandler import saveTrack
 import yaml
 import os
