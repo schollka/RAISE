@@ -1,5 +1,5 @@
 from ognClient import OgnClient
-from createTimeSeriesPlot import plotAltSpeedAndStates
+from dataPlotter import plotAltSpeedAndStates
 import pickle
 
 client = OgnClient()
