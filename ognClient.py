@@ -338,36 +338,46 @@ class OgnClient:
             return #abort if no data is present    
         lastDataPoint = track[-1] #get the newest data point in the track data
         
-        if stateChanged:
-            currentState = aircraft["stableState"]
-            prevState = aircraft["prevStableState"]
-            prevPrevState = aircraft["prevPrevStableState"]
+        if stateChanged: #skip the computation if no change occured
+            currentState = aircraft["stableState"] #get current state
+            prevState = aircraft["prevStableState"] #get previos state
+            prevPrevState = aircraft["prevPrevStableState"] #get previos previos state
 
+            #take off detection
             if prevState == "onGround" and currentState == "airborne":
+                #state transition path: onGround => airborne
                 takeOff = True
             elif prevPrevState == "onGround" and prevState == "transitionAirGrnd" and currentState == "airborne":
+                #state transition path: onGround => transitionAirGrnd => airborne
                 takeOff = True
             else:
                 takeOff = False
 
+            #tpuch down detection
             if prevState == "airborne" and currentState == "onGround":
+                #state transition path: airborne => onGround
                 touchDown = True
             elif (prevPrevState in {"airborne", "landing", "transitionAirGrnd"} 
                   and prevState in {"landing", "transitionAirGrnd"}
                   and currentState == "onGround"):
+                #state transition path: airborne/landing/transitionAirGrnd => landing/transitionAirGrnd => onGround
                 touchDown = True
             else:
                 touchDown = False 
 
-            eventDict = self.createPlaceHolderFlightEvent()
+            #store the information in a dictionary
+            eventDict = self.createPlaceHolderFlightEvent() #get default dict
             eventDict["detectedTakeOff"] = takeOff
             eventDict["detectedTouchDown"] = touchDown
 
+            #store the information in the aircraft overview
             aircraft["detectedTakeOff"] = takeOff
             aircraft["detectedTouchDown"] = touchDown
             lastDataPoint["flightEvent"] = eventDict
         
         else:
+            #no state change occured => no event can be detected
+            #store the default information
             eventDict = self.createPlaceHolderFlightEvent()
             aircraft["detectedTakeOff"] = eventDict["detectedTakeOff"]
             aircraft["detectedTouchDown"] = eventDict["detectedTouchDown"]
@@ -471,64 +481,7 @@ class OgnClient:
         saveTrack(track, dbPath)
         print(f"\n[DB] Dumping {len(track)} points for {aircraftId} to database.")
         # TODO: Replace with actual DB logic
-    
-    def detectFlightSubState(self, track):
-        """
-        Platzhalter für spätere ML oder Regelbasierte Klassifikation.
-        """
-        return "cruise"  # Dummy – später ersetzt durch echte Logik oder ML
-
-    
-    def updateFlightState(self, aircraftId):
-        aircraft = self.aircraftTracks[aircraftId]
-        track = aircraft["track"]
-
-        currentState = self.detectFlightState(aircraftId)
-        aircraft["flightState"] = currentState
-        if track:
-            track[-1]["flightState"] = currentState
-
-        stableChanged = self.debounceState(aircraftId, currentState)
-        if not stableChanged:
-            return
-
-        prevState = aircraft["prevStableState"]
-        newState = aircraft["stableState"]
-
-        #print(f"[FSM-DEBUG] {aircraftId}: prev={prevState}, new={newState}")
-
-        # 🛫 Takeoff-Erkennung
-        if newState == "airborne":
-            if prevState == "onGround" or (
-                prevState == "unknown" and aircraft.get("prevStableState") == "onGround"
-            ):
-                aircraft["hasBeenAirborne"] = True
-                aircraft["landedSaved"] = False
-                aircraft["flightSubState"] = "takeoff"
-                print(f"[FSM] {aircraftId}: takeoff detected")
-
-        # 🛬 Landung robust erkennen, auch nach unknown
-        elif newState == "onGround":
-            lastAirborne = aircraft.get("lastAirborneTime")
-            if lastAirborne and (self.time.getSystemTime() - lastAirborne) < timedelta(minutes=15):
-                if aircraft["hasBeenAirborne"] and not aircraft["landedSaved"]:
-                    self.dumpDataToDatabase(aircraftId, track)
-                    aircraft["landedSaved"] = True
-                    aircraft["flightSubState"] = None
-                    duration = (self.time.getSystemTime() - lastAirborne).total_seconds()
-                    print(f"[FSM] {aircraftId}: landed after {duration:.0f}s airborne")
-
-        # ✋ alle anderen Zustände
-        else:
-            aircraft["flightSubState"] = None
-
-        # 🧠 Substatus (Platzhalter)
-        if newState == "airborne":
-            aircraft["flightSubState"] = self.detectFlightSubState(track)
-            if track:
-                track[-1]["flightSubState"] = aircraft["flightSubState"]
-
-    
+        
     def processMessageLine(self, line):
         #used when the system runs in synchrone mode and recieves data from ogn-decode
         parsed = self.parseOgnLine(line)
