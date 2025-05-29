@@ -339,8 +339,6 @@ class OgnClient:
         lastDataPoint = track[-1] #get the newest data point in the track data
         
         if stateChanged:
-
-
             currentState = aircraft["stableState"]
             prevState = aircraft["prevStableState"]
             prevPrevState = aircraft["prevPrevStableState"]
@@ -360,11 +358,6 @@ class OgnClient:
                 touchDown = True
             else:
                 touchDown = False 
-
-            if takeOff:
-                print("Detected TakeOff")
-            if touchDown:
-                print("Detected TouchDown")
 
             eventDict = self.createPlaceHolderFlightEvent()
             eventDict["detectedTakeOff"] = takeOff
