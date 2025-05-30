@@ -7,6 +7,7 @@ systemParameters:
   MAXIMUM_MESSAGES_IN_INPUT_BUFFER: 10  #maximum number of messages that are held in the input buffer for processing [-]
   REALTIME_MODE: False                  #run the system in realtime mode (deployed) or in asynchrone mode (testing) [bool]
   STORAGE_DURATION_ARRIVAL: 180         #maximum time window of track data that is stored into the database wehn the touch down is detected [s]
+  PROBABILITY_OF_DEPATURE_STORAGE: 0.4  #probability of storing the depature track data into the database after the deparure was detected [-]
 
 #airport parameters
 airportParameters:

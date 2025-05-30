@@ -9,6 +9,7 @@ from databankHandler import saveTrack
 import yaml
 import os
 import shutil
+import random
 
 ####################################################
 ################# OGN Client #######################
@@ -51,6 +52,9 @@ class OgnClient:
             "detectedTakeOff": False,
             "detectedTouchDown": False
         }
+    
+    def randomStorageFlag(self, probability):
+        return random.random() < probability
 
     def __init__(self):
         '''
@@ -381,8 +385,14 @@ class OgnClient:
 
             #write data to database
             if touchDown:
+                #store the last track points to the database
                 self.writeDataToDatabase(aircraftId=aircraftId, track=track, category="arrival", duration=self.systemParameters["STORAGE_DURATION_ARRIVAL"])
-        
+
+            if takeOff:
+                aircraft["aircraftDepartedAirport"] = True
+                aircraft["departureTime"] = self.time.getSystemTime()
+                aircraft["storeDeparture"] = self.randomStorageFlag(self.systemParameters["PROBABILITY_OF_DEPATURE_STORAGE"])
+                print(f"{aircraft["aircraftDepartedAirport"]} | {aircraft["departureTime"]} | {aircraft["storeDeparture"]}")      
         else:
             #no state change occured => no event can be detected
             #store the default information

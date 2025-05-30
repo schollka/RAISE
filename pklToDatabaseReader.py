@@ -17,4 +17,4 @@ for data in flightData:
 aircraftId, aircraftData = next(iter(client.aircraftTracks.items()))
 track = aircraftData["track"]
 
-plotAltSpeedAndStates(track)
+#plotAltSpeedAndStates(track)
