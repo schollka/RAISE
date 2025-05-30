@@ -102,7 +102,37 @@ def plotAltSpeedAndStates(track):
     plt.show()
 
 
+def plotScatterPlotAltSpeed(allTracks):
+    stateColors = {
+        'unknown': 'gray',
+        'airborne': 'blue',
+        'onGround': 'green',
+        'transitionAirGrnd': 'orange',
+    }
+    from collections import defaultdict
+    groupedPoints = defaultdict(lambda: {'alt': [], 'speed': []})
 
+    for track in allTracks:
+        for point in track:
+            state = point.get('aircraftStates', {}).get('flightState', 'unknown')
+            groupedPoints[state]['alt'].append(point.get('altitude', 0))
+            groupedPoints[state]['speed'].append(point.get('speed', 0))
+
+    import matplotlib.pyplot as plt
+    plt.figure(figsize=(10, 6))
+    for state, data in groupedPoints.items():
+        color = stateColors.get(state, 'black')
+        plt.scatter(data['alt'], data['speed'], s=10, label=state, color=color, alpha=0.6)
+
+    plt.ylabel("Ground speed [m/s]")
+    plt.xlabel("Altitude [m]")
+    plt.title("Aircraft States")
+    plt.ylim(0, 70)
+    plt.xlim(100, 1000)
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
 
     '''# Plot 3: distanceToAirport
     axs[2].step(timestamps, distanceToAirport, label="dist", color="tab:red")
