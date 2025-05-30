@@ -11,7 +11,8 @@ with open(file2, 'rb') as f:
     flightData = pickle.load(f)  # erwartet z.B. ein Dict mit aircraftId als Keys
 
 for data in flightData:
-    client.processMessageDict(data)   
+    client.processMessageDict(data)
+    client.removeOldTracks()
 
 aircraftId, aircraftData = next(iter(client.aircraftTracks.items()))
 track = aircraftData["track"]

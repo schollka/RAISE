@@ -22,10 +22,13 @@ class TrackPoint(Base):
     track = Column(Float)
     turnRate = Column(Float)
     state = Column(String)
+    category = Column(String)  #category of stored data, departure, arrival, inFlight
 
-def saveTrack(trackDeque: deque, dbPath: str):
+
+def saveTrack(trackDeque: deque, dbPath: str, category: str):
     """
-    Speichert alle Punkte in `trackDeque` als zusammengehörigen Flug mit gemeinsamer flightId.
+    Speichert alle Punkte in `trackDeque` als zusammengehörigen Flug mit gemeinsamer flightId
+    und übergibt die angegebene Kategorie (z. B. 'departure', 'arrival', 'inFlight').
     """
     if not trackDeque:
         return  # nichts zu speichern
@@ -50,9 +53,11 @@ def saveTrack(trackDeque: deque, dbPath: str):
             groundSpeed=point['groundSpeed'],
             track=point['track'],
             turnRate=point['turnRate'],
-            state=point.get('state', 'unknown')
+            state=point.get('state', 'unknown'),
+            category=category
         )
         session.add(entry)
 
     session.commit()
     session.close()
+

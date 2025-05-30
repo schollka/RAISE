@@ -101,6 +101,10 @@ class OgnClient:
             #flight events
             "detectedTakeOff": False, #boolean state if a take-off was detected with this data point
             "detectedTouchDown": False, #boolean state if a landing was detected with this data point
+            "aircraftDepartedAirport": False, #boolen store information if aircraft has departed from this airport
+            "departureTime": None, #time of departure
+            "storeDeparture": False, #boolen to trigger the storage of the departure into the database
+            "lastTimeDataWrittenToDB": None, #last timestamp at which data was written to the databse
 
 
             "lastStateChange": self.time.getSystemTime(), #time of last state change
@@ -374,6 +378,10 @@ class OgnClient:
             aircraft["detectedTakeOff"] = takeOff
             aircraft["detectedTouchDown"] = touchDown
             lastDataPoint["flightEvent"] = eventDict
+
+            #write data to database
+            if touchDown:
+                self.writeDataToDatabase(aircraftId=aircraftId, track=track, category="arrival", duration=self.systemParameters["STORAGE_DURATION_ARRIVAL"])
         
         else:
             #no state change occured => no event can be detected
@@ -476,11 +484,21 @@ class OgnClient:
             if not track:
                 del self.aircraftTracks[aircraftId] #delete aircraft entry when no data points are left
 
-    def dumpDataToDatabase(self, aircraftId, track):
+    def writeDataToDatabase(self, aircraftId, track, category, duration):
         dbPath = "flightData.db"
-        saveTrack(track, dbPath)
-        print(f"\n[DB] Dumping {len(track)} points for {aircraftId} to database.")
-        # TODO: Replace with actual DB logic
+        now = self.time.getSystemTime()
+        cutoff = now - timedelta(seconds=duration)
+
+        recentPoints = [point for point in track if point['timestamp'] >= cutoff]
+
+        if recentPoints:
+            saveTrack(recentPoints, dbPath, category=category)
+            print(f"\n[DB] Dumping {len(recentPoints)} points for {aircraftId} to database as category {category}.")
+        else:
+            print(f"\n[DB] No points in the last {duration} seconds for {aircraftId} to store.")
+
+        from dataPlotter import plotAltSpeedAndStates
+        plotAltSpeedAndStates(recentPoints)
         
     def processMessageLine(self, line):
         #used when the system runs in synchrone mode and recieves data from ogn-decode
