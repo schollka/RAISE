@@ -13,6 +13,7 @@ with open(file2, 'rb') as f:
 for data in flightData:
     client.processMessageDict(data)
     client.removeOldTracks()
+    client.airborneDataWriteDetection()
 
 aircraftId, aircraftData = next(iter(client.aircraftTracks.items()))
 track = aircraftData["track"]

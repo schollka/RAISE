@@ -2,12 +2,15 @@
 systemParameters: 
   HOST: 127.0.0.1                       #IP adress of the OGN decode TCP server (localhost) [IP]
   PORT: 50001                           #port number of the OGN decode TCP server [-]
+  DATABASE_PATH: "flightData.db"        #path to the DB that stores all flight data
   DEQUE_LENGHT: 100000                  #maximum number of data points in the buffer (RAM) per aircraft [-]
   STORAGE_DURATION_SECONDS: 600         #maximum duration a data point is retained in buffer (RAM) [s]
   MAXIMUM_MESSAGES_IN_INPUT_BUFFER: 10  #maximum number of messages that are held in the input buffer for processing [-]
   REALTIME_MODE: False                  #run the system in realtime mode (deployed) or in asynchrone mode (testing) [bool]
-  STORAGE_DURATION_ARRIVAL: 180         #maximum time window of track data that is stored into the database wehn the touch down is detected [s]
+  STORAGE_DURATION_ARRIVAL: 180         #maximum time window of track data that is stored into the database when the touch down is detected [s]
   PROBABILITY_OF_DEPATURE_STORAGE: 0.4  #probability of storing the depature track data into the database after the deparure was detected [-]
+  STORAGE_DURATION_PRE_DEPARTURE: 60    #maximum time window of track data that is stored in the database before the take off was detected [s]
+  STORAGE_DURATION_AFT_DEPARTURE: 60    #maximum time wibdow of track data that is stored in the database after the take off was detected [s]
 
 #airport parameters
 airportParameters:

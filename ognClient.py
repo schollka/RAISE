@@ -392,7 +392,7 @@ class OgnClient:
                 aircraft["aircraftDepartedAirport"] = True
                 aircraft["departureTime"] = self.time.getSystemTime()
                 aircraft["storeDeparture"] = self.randomStorageFlag(self.systemParameters["PROBABILITY_OF_DEPATURE_STORAGE"])
-                print(f"{aircraft["aircraftDepartedAirport"]} | {aircraft["departureTime"]} | {aircraft["storeDeparture"]}")      
+                print(f"Departed: {aircraft["aircraftDepartedAirport"]} | {aircraft["departureTime"]} | StoreDep: {aircraft["storeDeparture"]}")      
         else:
             #no state change occured => no event can be detected
             #store the default information
@@ -494,21 +494,44 @@ class OgnClient:
             if not track:
                 del self.aircraftTracks[aircraftId] #delete aircraft entry when no data points are left
 
+    def airborneDataWriteDetection(self):
+        for aircraftId, data in list(self.aircraftTracks.items()):
+            aircraft = self.aircraftTracks[aircraftId]
+            now = self.time.getSystemTime() #get current time
+
+            #Write departure data
+            if aircraft["storeDeparture"]:
+                if (now - aircraft['departureTime']).total_seconds() >= self.systemParameters['STORAGE_DURATION_AFT_DEPARTURE']:
+                    aircraft['storeDeparture'] = False
+                    aircraft['lasttimedataWrittenToDB'] = now
+
+                    lowerBound = aircraft['departureTime'] - timedelta(seconds=self.systemParameters['STORAGE_DURATION_PRE_DEPARTURE'])
+                    upperBound = aircraft['departureTime'] + timedelta(seconds=self.systemParameters['STORAGE_DURATION_AFT_DEPARTURE'])
+                    
+                    track = data["track"]
+                    recentPoints = [point for point in track if lowerBound <= point['timestamp'] <= upperBound]
+
+                    if recentPoints:
+                        saveTrack(recentPoints, dbPath=self.systemParameters['DATABASE_PATH'], category="departure")
+                        print(f"\n[DB] Dumping {len(recentPoints)} points for {aircraftId} to database as category departure.")
+                    else:
+                        print(f"\n[DB] No points for {aircraftId} to store.")
+            
+
     def writeDataToDatabase(self, aircraftId, track, category, duration):
-        dbPath = "flightData.db"
         now = self.time.getSystemTime()
         cutoff = now - timedelta(seconds=duration)
 
         recentPoints = [point for point in track if point['timestamp'] >= cutoff]
 
         if recentPoints:
-            saveTrack(recentPoints, dbPath, category=category)
+            saveTrack(recentPoints, dbPath=self.systemParameters['DATABASE_PATH'], category=category)
             print(f"\n[DB] Dumping {len(recentPoints)} points for {aircraftId} to database as category {category}.")
         else:
             print(f"\n[DB] No points in the last {duration} seconds for {aircraftId} to store.")
 
         from dataPlotter import plotAltSpeedAndStates
-        plotAltSpeedAndStates(recentPoints)
+        #plotAltSpeedAndStates(recentPoints)
         
     def processMessageLine(self, line):
         #used when the system runs in synchrone mode and recieves data from ogn-decode
