@@ -389,9 +389,9 @@ class OgnClient:
                 self.writeDataToDatabase(aircraftId=aircraftId, track=track, category="arrival", duration=self.systemParameters["STORAGE_DURATION_ARRIVAL"])
 
             if takeOff:
-                aircraft["aircraftDepartedAirport"] = True
-                aircraft["departureTime"] = self.time.getSystemTime()
-                aircraft["storeDeparture"] = self.randomStorageFlag(self.systemParameters["PROBABILITY_OF_DEPATURE_STORAGE"])
+                aircraft["aircraftDepartedAirport"] = True #set the flag, that the aircraft departed the airport
+                aircraft["departureTime"] = self.time.getSystemTime() #set the departure time (time at which the take off was deteced)
+                aircraft["storeDeparture"] = self.randomStorageFlag(self.systemParameters["PROBABILITY_OF_DEPATURE_STORAGE"]) #radnomly set the flag if this departure should be stored in the DB or not
                 print(f"Departed: {aircraft["aircraftDepartedAirport"]} | {aircraft["departureTime"]} | StoreDep: {aircraft["storeDeparture"]}")      
         else:
             #no state change occured => no event can be detected
