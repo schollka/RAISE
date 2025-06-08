@@ -10,7 +10,10 @@ systemParameters:
   STORAGE_DURATION_ARRIVAL: 180         #maximum time window of track data that is stored into the database when the touch down is detected [s]
   PROBABILITY_OF_DEPATURE_STORAGE: 0.4  #probability of storing the depature track data into the database after the deparure was detected [-]
   STORAGE_DURATION_PRE_DEPARTURE: 60    #maximum time window of track data that is stored in the database before the take off was detected [s]
-  STORAGE_DURATION_AFT_DEPARTURE: 60    #maximum time wibdow of track data that is stored in the database after the take off was detected [s]
+  STORAGE_DURATION_AFT_DEPARTURE: 60    #maximum time window of track data that is stored in the database after the take off was detected [s]
+  STORAGE_DURATION_IN_FLIGHT: 180       #maximum time window of track data that is stored in the database during in flight data storage [s]
+  MINIMUM_TIME_AIRBORNE: 300            #minimum time the aircraft has to be airborne to be able to store the in flight data into the database [s]
+  PROBABILITY_OF_IN_FLIGHT_STORAGE: 0.2 #probability of storing the in flight data into the database [-]
 
 #airport parameters
 airportParameters:

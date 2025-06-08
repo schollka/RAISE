@@ -113,14 +113,8 @@ class OgnClient:
             "departureTime": None, #time of departure
             "storeDeparture": False, #boolen to trigger the storage of the departure into the database
             "lastTimeDataWrittenToDB": None, #last timestamp at which data was written to the databse
-
-
-            "lastStateChange": self.time.getSystemTime(), #time of last state change
-            "lastAirborneTime": None, #last time when the aircraft was stable airborne
-
-            #meta data
-            "landedSaved": False, #flag if track data was saved into database
-            "hasBeenAirborne": False, #flag if aircraft hast been airborne before
+            "airborneSince": None, #last time when the aircraft was stable airborne
+            "inFlightDataStored": False, #boolen if in flight data was stored to the database
 
             #signal states
             "receptionState": "normal" #state of the signal reception
@@ -315,6 +309,13 @@ class OgnClient:
                     aircraft["pendingState"] = newPendingState #write to aircraft
                     aircraft["prevPrevStableState"] = newPrevPrevStableState #write to aircraft
                     flgStableStateChanged = True #set flag
+
+                    if newStableState == 'airborne':
+                        aircraft["airborneSince"] = now
+
+                    if newStableState == 'onGround':
+                        aircraft["airborneSince"] = None
+
                 else:
                     #the new state already occured but not long enough => wait for future data points
                     #prepare variables for the return dictionary
@@ -390,7 +391,7 @@ class OgnClient:
             #write data to database
             if touchDown:
                 #store the last track points to the database
-                self.writeLandingDataToDatabase(aircraftId=aircraftId, track=track, category="arrival", duration=self.systemParameters["STORAGE_DURATION_ARRIVAL"])
+                self.writeDataToDatabase(aircraftId=aircraftId, track=track, category="arrival", duration=self.systemParameters["STORAGE_DURATION_ARRIVAL"])
 
             if takeOff:
                 aircraft["aircraftDepartedAirport"] = True #set the flag, that the aircraft departed the airport
@@ -500,13 +501,14 @@ class OgnClient:
     def airborneDataWriteDetection(self):
         '''
         This function writes the departure data into the DB if the deparure was set to be stored in the DB.
+        This function also decides if in-flight data is written to the DB or not and handles the process
         '''
         for aircraftId, data in list(self.aircraftTracks.items()):
             aircraft = self.aircraftTracks[aircraftId]
             now = self.time.getSystemTime() #get current time
 
-            #Write departure data
-            if aircraft["storeDeparture"]: #if the flag was set to store the departure data
+            #write departure data
+            if aircraft.get("storeDeparture"): #if the flag was set to store the departure data
                 #check if the set amount of time since the departure has passed 
                 if (now - aircraft['departureTime']).total_seconds() >= self.systemParameters['STORAGE_DURATION_AFT_DEPARTURE']:
                     aircraft['storeDeparture'] = False #set the flag to false to aviod storin the data multiple times
@@ -523,8 +525,44 @@ class OgnClient:
                         #store data in database
                         saveTrack(recentPoints, dbPath=self.systemParameters['DATABASE_PATH'], category="departure")
                         print(f"\n[DB] Dumping {len(recentPoints)} points for {aircraftId} to database as category departure.")
-          
-    def writeLandingDataToDatabase(self, aircraftId, track, category, duration):
+        
+            # write in-flight data
+            if aircraft.get("stableState") != "airborne":
+                return  #only continue when the aircraft is airborne
+            
+            if aircraft.get('inFlightDataStored'):
+                return #continue if the in flight data was already stored
+
+            airborneSince = aircraft.get("airborneSince") #get the time since the aircraft is airborne
+            lastWritten = aircraft.get("lastTimeDataWrittenToDB") #get the time when the last data was dumped to the DB
+            
+            if not isinstance(airborneSince, datetime):
+                return #check if a valid airborne time was recieved
+
+            #get system parameters
+            minAirborne = self.systemParameters["MINIMUM_TIME_AIRBORNE"]
+            storeInterval = self.systemParameters["STORAGE_DURATION_IN_FLIGHT"]
+
+            #time since the aircraft is airborne
+            timeAirborne = (now - airborneSince).total_seconds()
+
+            #do not continue if the aircraft is not airborne long enough
+            if timeAirborne < (minAirborne + storeInterval):
+                return
+
+            #check if lastWritten was set, if so then how much time elapsed since then
+            if isinstance(lastWritten, datetime):
+                timeSinceLastWrite = (now - lastWritten).total_seconds()
+                if timeSinceLastWrite < storeInterval:
+                    return
+
+            #if all conditions are met, then randomly decide to store the data
+            if self.randomStorageFlag(probability=self.systemParameters['PROBABILITY_OF_IN_FLIGHT_STORAGE']):
+                aircraft["lastTimeDataWrittenToDB"] = now
+                aircraft["inFlightDataStored"] = True
+                self.writeDataToDatabase(aircraftId=aircraftId, track=data["track"],category='inFlight', duration=storeInterval)
+                    
+    def writeDataToDatabase(self, aircraftId, track, category, duration):
         #Store the track data after the landing was detected into database
         now = self.time.getSystemTime()
         cutoff = now - timedelta(seconds=duration) #compute cutoff time
@@ -536,8 +574,9 @@ class OgnClient:
             saveTrack(recentPoints, dbPath=self.systemParameters['DATABASE_PATH'], category=category)
             print(f"\n[DB] Dumping {len(recentPoints)} points for {aircraftId} to database as category {category}.")
 
-        from dataPlotter import plotAltSpeedAndStates
-        #plotAltSpeedAndStates(recentPoints)
+        if category == 'inFlight':
+            from dataPlotter import plotAltSpeedAndStates
+            plotAltSpeedAndStates(recentPoints)
         
     def processMessageLine(self, line):
         #used when the system runs in synchrone mode and recieves data from ogn-decode
