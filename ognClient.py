@@ -33,12 +33,14 @@ class OgnClient:
             return default
         
     def createPlaceHolderPendingState(self):
+        #create a placeholder dictionary for the pending state dict
         return {
             "state": "unknown",
             "timestamp": self.time.getSystemTime()
         }
 
     def createPlaceHolderAircraftStates(self):
+        #create a placeholder dictionary for the aircraft states dict
         return {
             "flightState": "unknown",
             "stableState": "unknown",
@@ -48,12 +50,14 @@ class OgnClient:
         }
     
     def createPlaceHolderFlightEvent(self):
+        #create a placeholder dictionary for the flight event dict
         return {
             "detectedTakeOff": False,
             "detectedTouchDown": False
         }
     
     def randomStorageFlag(self, probability):
+        #returns True or False based on the random function and a given probability
         return random.random() < probability
 
     def __init__(self):
@@ -386,7 +390,7 @@ class OgnClient:
             #write data to database
             if touchDown:
                 #store the last track points to the database
-                self.writeDataToDatabase(aircraftId=aircraftId, track=track, category="arrival", duration=self.systemParameters["STORAGE_DURATION_ARRIVAL"])
+                self.writeLandingDataToDatabase(aircraftId=aircraftId, track=track, category="arrival", duration=self.systemParameters["STORAGE_DURATION_ARRIVAL"])
 
             if takeOff:
                 aircraft["aircraftDepartedAirport"] = True #set the flag, that the aircraft departed the airport
@@ -474,7 +478,6 @@ class OgnClient:
         flgStableStateChanged, newStates = self.debounceFlightState(aircraftId, flightState) #debounce the computed state
         self.detectFlightEvent(aircraftId=aircraftId, stateChanged=flgStableStateChanged)
 
-
         #write all current states (state, stableState, ...) into the corresponding deque entry for storage
         lastDataPoint["aircraftStates"] = lastDataPoint.get("aircraftStates", self.createPlaceHolderAircraftStates())
         lastDataPoint["aircraftStates"] = newStates 
@@ -495,40 +498,43 @@ class OgnClient:
                 del self.aircraftTracks[aircraftId] #delete aircraft entry when no data points are left
 
     def airborneDataWriteDetection(self):
+        '''
+        This function writes the departure data into the DB if the deparure was set to be stored in the DB.
+        '''
         for aircraftId, data in list(self.aircraftTracks.items()):
             aircraft = self.aircraftTracks[aircraftId]
             now = self.time.getSystemTime() #get current time
 
             #Write departure data
-            if aircraft["storeDeparture"]:
+            if aircraft["storeDeparture"]: #if the flag was set to store the departure data
+                #check if the set amount of time since the departure has passed 
                 if (now - aircraft['departureTime']).total_seconds() >= self.systemParameters['STORAGE_DURATION_AFT_DEPARTURE']:
-                    aircraft['storeDeparture'] = False
-                    aircraft['lasttimedataWrittenToDB'] = now
+                    aircraft['storeDeparture'] = False #set the flag to false to aviod storin the data multiple times
+                    aircraft['lastTimeDataWrittenToDB'] = now #set the time of storage
 
+                    #compute time window boundaries
                     lowerBound = aircraft['departureTime'] - timedelta(seconds=self.systemParameters['STORAGE_DURATION_PRE_DEPARTURE'])
                     upperBound = aircraft['departureTime'] + timedelta(seconds=self.systemParameters['STORAGE_DURATION_AFT_DEPARTURE'])
                     
                     track = data["track"]
-                    recentPoints = [point for point in track if lowerBound <= point['timestamp'] <= upperBound]
+                    recentPoints = [point for point in track if lowerBound <= point['timestamp'] <= upperBound] #extract the points inside the time window
 
                     if recentPoints:
+                        #store data in database
                         saveTrack(recentPoints, dbPath=self.systemParameters['DATABASE_PATH'], category="departure")
                         print(f"\n[DB] Dumping {len(recentPoints)} points for {aircraftId} to database as category departure.")
-                    else:
-                        print(f"\n[DB] No points for {aircraftId} to store.")
-            
-
-    def writeDataToDatabase(self, aircraftId, track, category, duration):
+          
+    def writeLandingDataToDatabase(self, aircraftId, track, category, duration):
+        #Store the track data after the landing was detected into database
         now = self.time.getSystemTime()
-        cutoff = now - timedelta(seconds=duration)
+        cutoff = now - timedelta(seconds=duration) #compute cutoff time
 
-        recentPoints = [point for point in track if point['timestamp'] >= cutoff]
+        recentPoints = [point for point in track if point['timestamp'] >= cutoff] #extract all points in the time window
 
         if recentPoints:
+            #store data into the database
             saveTrack(recentPoints, dbPath=self.systemParameters['DATABASE_PATH'], category=category)
             print(f"\n[DB] Dumping {len(recentPoints)} points for {aircraftId} to database as category {category}.")
-        else:
-            print(f"\n[DB] No points in the last {duration} seconds for {aircraftId} to store.")
 
         from dataPlotter import plotAltSpeedAndStates
         #plotAltSpeedAndStates(recentPoints)
@@ -539,9 +545,9 @@ class OgnClient:
         if not parsed:
             return
 
-        aircraftId = parsed["aircraft"]
-        self.aircraftTracks[aircraftId]["track"].append(parsed)
-        self.stateMachine(aircraftId)
+        aircraftId = parsed["aircraft"] #get the aircraft ID from message
+        self.aircraftTracks[aircraftId]["track"].append(parsed) #append the recieved data
+        self.stateMachine(aircraftId) #compute the state of the aircraft
 
     def printInfos(self):
         #print basic infos to the terminal
@@ -596,7 +602,7 @@ class OgnClient:
             print(f"Fehler beim Verarbeiten der OGN-Daten: {e}")
             return
 
-        aircraftId = data["aircraft"]
+        aircraftId = data["aircraft"] #get the aircraft ID from the recieved data
         self.aircraftTracks[aircraftId]["track"].append(data) #store data in deque
         self.stateMachine(aircraftId=aircraftId) #compute the state of the aircraft
 
