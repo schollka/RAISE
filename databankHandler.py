@@ -15,39 +15,39 @@ class TrackPoint(Base):
     flightId = Column(Integer)
     category = Column(String)
 
-    # Zeit und Position
-    timestamp = Column(DateTime)
-    time = Column(Integer)
-    recvTime = Column(Float)
-    lat = Column(Float)
-    lon = Column(Float)
-    altitude = Column(Integer)
-    distanceToAirport = Column(Float)
+    #time and location
+    timestamp = Column(DateTime) #system time stamp
+    time = Column(Integer) #time in the OGN message HHMMSS
+    recvTime = Column(Float) #decode time
+    lat = Column(Float) #latitude
+    lon = Column(Float) #longitude
+    altitude = Column(Integer) #GPS altitude
+    distanceToAirport = Column(Float) #computed distance to reference point on airport
 
-    # Bewegung
-    climbRate = Column(Float)
-    groundSpeed = Column(Float)
-    track = Column(Float)
-    turnRate = Column(Float)
+    #movement
+    climbRate = Column(Float) #vertical speed
+    groundSpeed = Column(Float) #GPS ground speed
+    track = Column(Float) #heading
+    turnRate = Column(Float) #turn rate
 
-    # Empfangsdaten
-    freq = Column(Float)
-    snr = Column(Float)
+    #reciever information
+    freq = Column(Float) #frequency
+    snr = Column(Float) 
     rssi = Column(Float)
     errCount = Column(Integer)
     eStatus = Column(Integer)
-    relayed = Column(Boolean)
-    reducedDataConfidence = Column(Boolean)
+    relayed = Column(Boolean) #flag if the message was relayed
+    reducedDataConfidence = Column(Boolean) #flag if the data may be corrupted
 
-    # Relativer Standort
-    distance = Column(Float)
-    bearing = Column(Float)
-    elevAngle = Column(Float)
+    #relative position calculated by ogn-decode
+    distance = Column(Float) #distance from reciever station
+    bearing = Column(Float) #bearing
+    elevAngle = Column(Float) #elevtion angle
 
-    # Zusatzinfos
-    state = Column(String)
-    aircraftStates = Column(Text)  # als JSON-String speichern
-    flightEvents = Column(Text)    # als JSON-String speichern
+    #additional information 
+    state = Column(String) #current computed state
+    aircraftStates = Column(Text)  #all aircraft state dictionary entires as JSON
+    flightEvents = Column(Text)    #all flight event dictionary entries as JSON
 
 def serializeDatetime(obj):
     #helper function to convert datetime obejcts into serialized data
