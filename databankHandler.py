@@ -56,53 +56,52 @@ def serializeDatetime(obj):
         return obj.isoformat()
     raise TypeError(f"Object of type {obj.__class__.__name__} is not JSON serializable")
 
-def saveTrack(trackDeque: deque, dbPath: str, category: str = "default"):
-    """
-    Speichert alle Punkte in `trackDeque` als zusammengehörigen Flug mit gemeinsamer flightId
-    und übergibt die angegebene Kategorie (z. B. 'departure', 'arrival', 'inFlight').
-    """
-    if not trackDeque:
-        return  # nichts zu speichern
+class DatabaseService:
+    def __init__(self, dbParameters):
+        self.parameters = dbParameters
+        self.engine = create_engine(f'sqlite:///{self.parameters["DATABASE_PATH"]}')
+        Base.metadata.create_all(self.engine)
+        self.Session = sessionmaker(bind=self.engine)
 
-    engine = create_engine(f'sqlite:///{dbPath}')
-    Base.metadata.create_all(engine)
-    Session = sessionmaker(bind=engine)
-    session = Session()
+    def saveTrack(self, trackDeque: deque, category: str = "default"):
+        if not trackDeque:
+            return  # nichts zu speichern
 
-    # aktuelle maximale flightId holen
-    lastFlightId = session.query(TrackPoint.flightId).order_by(TrackPoint.flightId.desc()).first()
-    nextFlightId = (lastFlightId[0] + 1) if lastFlightId else 1
+        session = self.Session()
 
-    for point in trackDeque:
-        trackPoint = TrackPoint(
-            flightId=nextFlightId,
-            category=category,
-            timestamp=point["timestamp"],
-            time=point["time"],
-            recvTime=point["recvTime"],
-            lat=point["lat"],
-            lon=point["lon"],
-            altitude=point["alt"],
-            distanceToAirport=point["distanceToAirport"],
-            climbRate=point["vs"],
-            groundSpeed=point["speed"],
-            track=point["track"],
-            turnRate=point["turnRate"],
-            freq=point["freq"],
-            snr=point["snr"],
-            rssi=point["rssi"],
-            errCount=point["errCount"],
-            eStatus=point["eStatus"],
-            relayed=point["relayed"],
-            reducedDataConfidence=point["reducedDataConfidence"],
-            distance=point["distance"],
-            bearing=point["bearing"],
-            elevAngle=point["elevAngle"],
-            state=point["aircraftStates"].get("flightState", "unknown"),
-            aircraftStates=json.dumps(point["aircraftStates"], default=serializeDatetime),
-            flightEvents=json.dumps(point["flightEvents"], default=serializeDatetime)
-        )
-        session.add(trackPoint)
+        lastFlightId = session.query(TrackPoint.flightId).order_by(TrackPoint.flightId.desc()).first()
+        nextFlightId = (lastFlightId[0] + 1) if lastFlightId else 1
 
-    session.commit()
-    session.close()
+        for point in trackDeque:
+            trackPoint = TrackPoint(
+                flightId=nextFlightId,
+                category=category,
+                timestamp=point["timestamp"],
+                time=point["time"],
+                recvTime=point["recvTime"],
+                lat=point["lat"],
+                lon=point["lon"],
+                altitude=point["alt"],
+                distanceToAirport=point["distanceToAirport"],
+                climbRate=point["vs"],
+                groundSpeed=point["speed"],
+                track=point["track"],
+                turnRate=point["turnRate"],
+                freq=point["freq"],
+                snr=point["snr"],
+                rssi=point["rssi"],
+                errCount=point["errCount"],
+                eStatus=point["eStatus"],
+                relayed=point["relayed"],
+                reducedDataConfidence=point["reducedDataConfidence"],
+                distance=point["distance"],
+                bearing=point["bearing"],
+                elevAngle=point["elevAngle"],
+                state=point["aircraftStates"].get("flightState", "unknown"),
+                aircraftStates=json.dumps(point["aircraftStates"], default=serializeDatetime),
+                flightEvents=json.dumps(point["flightEvents"], default=serializeDatetime)
+            )
+            session.add(trackPoint)
+
+        session.commit()
+        session.close()

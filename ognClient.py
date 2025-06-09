@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone, time
 from statistics import mean
 from math import radians, sin, cos, sqrt, atan2
 import select
-from databankHandler import saveTrack
+from databankHandler import DatabaseService
 import yaml
 import os
 import shutil
@@ -85,6 +85,7 @@ class OgnClient:
         self.airportParameters = allParams["airportParameters"] #airport parameters
         self.stateEstimationParameters = allParams["stateEstimationParameters"] #parameters used for state estimation
         self.signalReceptionParameters = allParams["signalReceptionParameters"] #signal reception state estimation parameters
+        self.databaseParameters = allParams["databaseParameters"] #parameters for the database
 
         ####################################################
         ################# initialize system ################
@@ -93,6 +94,7 @@ class OgnClient:
         self.host = self.systemParameters["HOST"] #define the host adress of the ogn-decode server
         self.port = self.systemParameters["PORT"] #define the port of the ogn-decode TCP server
         self.time = self.TimeManager() #initialize system time
+        self.databaseService = DatabaseService(dbParameters=self.databaseParameters)
 
         #initialize aircraft tracks dictionary
         self.aircraftTracks = defaultdict(lambda: {
@@ -523,7 +525,7 @@ class OgnClient:
 
                     if recentPoints:
                         #store data in database
-                        saveTrack(recentPoints, dbPath=self.systemParameters['DATABASE_PATH'], category="departure")
+                        self.databaseService.saveTrack(trackDeque=recentPoints, category="departure")
                         print(f"\n[DB] Dumping {len(recentPoints)} points for {aircraftId} to database as category departure.")
         
             # write in-flight data
@@ -571,7 +573,7 @@ class OgnClient:
 
         if recentPoints:
             #store data into the database
-            saveTrack(recentPoints, dbPath=self.systemParameters['DATABASE_PATH'], category=category)
+            self.databaseService.saveTrack(trackDeque=recentPoints, category=category)
             print(f"\n[DB] Dumping {len(recentPoints)} points for {aircraftId} to database as category {category}.")
 
         if category == 'inFlight':
