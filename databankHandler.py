@@ -1,5 +1,3 @@
-# save_to_db.py
-
 from sqlalchemy import create_engine, Column, Integer, Float, String, Boolean, DateTime, Text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
@@ -10,6 +8,7 @@ import json
 Base = declarative_base()
 
 class TrackPoint(Base):
+    #data structure for storing the track data in the database
     __tablename__ = 'track_points'
 
     id = Column(Integer, primary_key=True)
@@ -50,29 +49,42 @@ class TrackPoint(Base):
     aircraftStates = Column(Text)  # als JSON-String speichern
     flightEvents = Column(Text)    # als JSON-String speichern
 
-# Hilfsfunktion zum Konvertieren von datetime-Objekten
 def serializeDatetime(obj):
+    #helper function to convert datetime obejcts into serialized data
     if isinstance(obj, datetime):
         return obj.isoformat()
     raise TypeError(f"Object of type {obj.__class__.__name__} is not JSON serializable")
 
 class DatabaseService:
+    '''
+    main database class with function definitions for init, read and write operations
+    '''
+
     def __init__(self, dbParameters):
-        self.parameters = dbParameters
-        self.engine = create_engine(f'sqlite:///{self.parameters["DATABASE_PATH"]}')
+        #init the database service with the corret path and system behavior
+        self.parameters = dbParameters #get the parameters from the main program
+        self.engine = create_engine(
+                                    f'sqlite:///{self.parameters["DATABASE_PATH"]}',
+                                    connect_args={"check_same_thread": False}
+                                ) #create engine
+        with self.engine.connect() as conn:
+            conn.execute("PRAGMA journal_mode=WAL;") #3enable write-ahed loggin mode for simulatanios writing and reading
+
         Base.metadata.create_all(self.engine)
         self.Session = sessionmaker(bind=self.engine)
 
     def saveTrack(self, trackDeque: deque, category: str = "default"):
+        #writing track data to the database
         if not trackDeque:
-            return  # nichts zu speichern
+            return  #no data available
 
-        session = self.Session()
+        session = self.Session() #get the current session
 
-        lastFlightId = session.query(TrackPoint.flightId).order_by(TrackPoint.flightId.desc()).first()
-        nextFlightId = (lastFlightId[0] + 1) if lastFlightId else 1
+        lastFlightId = session.query(TrackPoint.flightId).order_by(TrackPoint.flightId.desc()).first() #get the last flight ID
+        nextFlightId = (lastFlightId[0] + 1) if lastFlightId else 1 #count the flight ID one step up for the new dataset
 
         for point in trackDeque:
+            #convert data into structure for each data point
             trackPoint = TrackPoint(
                 flightId=nextFlightId,
                 category=category,
@@ -101,7 +113,7 @@ class DatabaseService:
                 aircraftStates=json.dumps(point["aircraftStates"], default=serializeDatetime),
                 flightEvents=json.dumps(point["flightEvents"], default=serializeDatetime)
             )
-            session.add(trackPoint)
+            session.add(trackPoint) #add the new data point to the data base
 
-        session.commit()
-        session.close()
+        session.commit() #commit the changes to the database
+        session.close() #close session to the database
