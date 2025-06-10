@@ -544,6 +544,7 @@ class OgnClient:
             #get system parameters
             minAirborne = self.systemParameters["MINIMUM_TIME_AIRBORNE"]
             storeInterval = self.systemParameters["STORAGE_DURATION_IN_FLIGHT"]
+            maximumAverageDistance = self.systemParameters["MAX_DIST_TO_AIRPORT_IN_FLIGHT_STORAGE"]
 
             #time since the aircraft is airborne
             timeAirborne = (now - airborneSince).total_seconds()
@@ -557,6 +558,18 @@ class OgnClient:
                 timeSinceLastWrite = (now - lastWritten).total_seconds()
                 if timeSinceLastWrite < storeInterval:
                     return
+                
+            #check if the aircraft is near enough to the airport
+            now = self.time.getSystemTime() #get the current time
+            windowStart = now - timedelta(seconds=self.stateEstimationParameters["STATE_DETECTION_TIME_WINDOW"]) #determine the start time of the time window
+            recentPoints = [p for p in data["track"] if p["timestamp"] >= windowStart] #get all data points from the start time until now
+            
+            if len(recentPoints) >= self.stateEstimationParameters["MIN_NUMBER_DATA_POINTS_STATE_ESTIMATION"]: #ensure a minimum number of points is used
+                avgDist = mean(p["distanceToAirport"] for p in recentPoints)
+                if avgDist >= maximumAverageDistance:
+                    return
+            else:
+                return
 
             #if all conditions are met, then randomly decide to store the data
             if self.randomStorageFlag(probability=self.systemParameters['PROBABILITY_OF_IN_FLIGHT_STORAGE']):

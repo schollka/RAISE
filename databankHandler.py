@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, Float, String, Boolean, DateTime, Text
+from sqlalchemy import create_engine, text, Column, Integer, Float, String, Boolean, DateTime, Text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from collections import deque
@@ -68,7 +68,7 @@ class DatabaseService:
                                     connect_args={"check_same_thread": False}
                                 ) #create engine
         with self.engine.connect() as conn:
-            conn.execute("PRAGMA journal_mode=WAL;") #3enable write-ahed loggin mode for simulatanios writing and reading
+            conn.execute(text("PRAGMA journal_mode=WAL;")) #3enable write-ahed loggin mode for simulatanios writing and reading
 
         Base.metadata.create_all(self.engine)
         self.Session = sessionmaker(bind=self.engine)
