@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, text, Column, Integer, Float, String, Boolean, DateTime, Text
+from sqlalchemy import create_engine, text, Column, Integer, Float, String, Boolean, DateTime, Time, Text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from collections import deque
@@ -18,7 +18,7 @@ class TrackPoint(Base):
 
     #time and location
     timestamp = Column(DateTime) #system time stamp
-    time = Column(Integer) #time in the OGN message HHMMSS
+    time = Column(Time) #time in the OGN message HHMMSS
     recvTime = Column(Float) #decode time
     lat = Column(Float) #latitude
     lon = Column(Float) #longitude
@@ -74,7 +74,7 @@ class DatabaseService:
         Base.metadata.create_all(self.engine)
         self.Session = sessionmaker(bind=self.engine)
 
-    def saveTrack(self, trackDeque: deque, aircraftId: str = "private", category: str = "default"):
+    def saveTrack(self, trackDeque: deque, aircraftId: str = None, category: str = "default"):
         #writing track data to the database
         if not trackDeque:
             return  #no data available
@@ -88,15 +88,20 @@ class DatabaseService:
             #convert data into structure for each data point
             #privatize the aircraft ID if requested by the user
             if self.parameters["PRIVATE_AIRCRAFT_ID"]:
-                thisAircraftId="private"
+                thisAircraftId=None
             else:
                 thisAircraftId=aircraftId
+            #privatize the timestamp if requested by the user
+            if self.parameters["PRIVATE_TIMESTAMP"]:
+                thisTimeStamp=None
+            else:
+                thisTimeStamp=point["timestamp"] 
         
             trackPoint = TrackPoint(
                 flightId=nextFlightId,
                 aircraftId=thisAircraftId,
                 category=category,
-                timestamp=point["timestamp"],
+                timestamp=thisTimeStamp,
                 time=point["time"],
                 recvTime=point["recvTime"],
                 lat=point["lat"],

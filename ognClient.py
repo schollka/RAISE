@@ -209,8 +209,7 @@ class OgnClient:
         try:
             #try to demodulate the match into its data fields
             d["recvTime"] = float(d["recvTime"])
-            d["freq"] = float(d["freq"])
-            d["time"] = int(d["time"])
+            d["freq"] = float(d["freq"])           
             d["lat"] = float(d["lat"])
             d["lon"] = float(d["lon"])
             d["alt"] = int(d["alt"])
@@ -231,6 +230,7 @@ class OgnClient:
             if not self.systemParameters["REALTIME_MODE"]: #switch for realtime operation or asynchrone operation
                 self.time.setSystemTimeAsynchronousMode(asyntime=d["time"]) #create a timestamp based on the time in the recieved message
             d["timestamp"] = self.time.getSystemTime()
+            d["time"] = self.time.getSystemTime().time()
             d["aircraftStates"] = self.createPlaceHolderAircraftStates()
             d["flightEvents"] = self.createPlaceHolderFlightEvent()
         except Exception as e:
@@ -626,8 +626,7 @@ class OgnClient:
         try:
             #get and convert recieved data
             data["recvTime"] = self.safeFloat(data.get("recvTime"))
-            data["freq"] = self.safeFloat(data.get("frequency"))
-            data["time"] = self.safeInt(data.get("ognTime"))
+            data["freq"] = self.safeFloat(data.get("frequency"))           
             data["lat"] = self.safeFloat(data["lat"])
             data["lon"] = self.safeFloat(data["lon"])
             data["alt"] = self.safeInt(data["altitude"])
@@ -647,8 +646,9 @@ class OgnClient:
             data["distanceToAirport"] = self.distanceToAirport(data["lat"], data["lon"])
 
             if not self.systemParameters["REALTIME_MODE"]:
-                self.time.setSystemTimeAsynchronousMode(asyntime=data["time"])
+                self.time.setSystemTimeAsynchronousMode(asyntime=data.get("ognTime"))
             data["timestamp"] = self.time.getSystemTime() #set time stamp
+            data["time"] = self.time.getSystemTime().time()
             data["aircraftStates"] = self.createPlaceHolderAircraftStates()
             data["flightEvents"] = self.createPlaceHolderFlightEvent()
 
