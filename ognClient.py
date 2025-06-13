@@ -398,8 +398,7 @@ class OgnClient:
             if takeOff:
                 aircraft["aircraftDepartedAirport"] = True #set the flag, that the aircraft departed the airport
                 aircraft["departureTime"] = self.time.getSystemTime() #set the departure time (time at which the take off was deteced)
-                aircraft["storeDeparture"] = self.randomStorageFlag(self.systemParameters["PROBABILITY_OF_DEPATURE_STORAGE"]) #radnomly set the flag if this departure should be stored in the DB or not
-                print(f"Departed: {aircraft["aircraftDepartedAirport"]} | {aircraft["departureTime"]} | StoreDep: {aircraft["storeDeparture"]}")      
+                aircraft["storeDeparture"] = self.randomStorageFlag(self.systemParameters["PROBABILITY_OF_DEPATURE_STORAGE"]) #radnomly set the flag if this departure should be stored in the DB or not    
         else:
             #no state change occured => no event can be detected
             #store the default information
@@ -526,7 +525,6 @@ class OgnClient:
                     if recentPoints:
                         #store data in database
                         self.databaseService.saveTrack(trackDeque=recentPoints, aircraftId=aircraftId, category="departure")
-                        print(f"\n[DB] Dumping {len(recentPoints)} points for {aircraftId} to database as category departure.")
         
             # write in-flight data
             if aircraft.get("stableState") != "airborne":
@@ -587,12 +585,7 @@ class OgnClient:
         if recentPoints:
             #store data into the database
             self.databaseService.saveTrack(trackDeque=recentPoints, aircraftId=aircraftId, category=category)
-            print(f"\n[DB] Dumping {len(recentPoints)} points for {aircraftId} to database as category {category}.")
 
-        if category == 'inFlight':
-            from dataPlotter import plotAltSpeedAndStates
-            plotAltSpeedAndStates(recentPoints)
-        
     def processMessageLine(self, line):
         #used when the system runs in synchrone mode and recieves data from ogn-decode
         parsed = self.parseOgnLine(line)
