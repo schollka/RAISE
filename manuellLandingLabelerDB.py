@@ -12,17 +12,7 @@ import math
 import geopandas as gpd
 import contextily as cx
 from shapely.geometry import Point
-
-# Maximize plot window (only works with some backends)
-plt.switch_backend("tkagg")
-mng = plt.get_current_fig_manager()
-try:
-    mng.window.state("zoomed")
-except AttributeError:
-    try:
-        mng.frame.Maximize(True)
-    except AttributeError:
-        pass  # Not supported in this environment
+import tkinter as tk
 
 sourceCodeDir = os.path.dirname(os.path.abspath(__file__))
 parameterFile = os.path.join(sourceCodeDir, "parameters.yaml")
@@ -106,9 +96,9 @@ for i, flight_id in enumerate(arrival_flight_ids["flightId"]):
     fig, ax = plt.subplots(figsize=(10, 6))
     try:
         mng = plt.get_current_fig_manager()
-        mng.window.state("zoomed")
+        mng.frame.Maximize(True)
     except Exception:
-        pass
+        pass  # Not supported in this environment
 
     gdf.plot(ax=ax, label="Flight path", alpha=0.6, markersize=10)
     airport_geom = Point(airportParameters["AIRPORT_LONGITUDE"], airportParameters["AIRPORT_LATITUDE"])

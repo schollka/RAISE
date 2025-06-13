@@ -24,8 +24,8 @@ databaseParameters:
 #airport parameters
 airportParameters:
   AIRPORT_ALTITUDE: 266         #altitude of the airport above mean sea level [m]
-  AIRPORT_LATITUDE: 49.002222   #latitude of the airport reference position [°]
-  AIRPORT_LONGITUDE: 9.086389   #longitude of the airport reference positoin [°]
+  AIRPORT_LATITUDE: 49.000913   #latitude of the airport reference position [°]
+  AIRPORT_LONGITUDE: 9.083304   #longitude of the airport reference positoin [°]
 
 #parameters used for the aircraft state estimation
 stateEstimationParameters:
