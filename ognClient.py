@@ -723,6 +723,7 @@ class OgnClient:
                             
                             self.processMessageLine(line) #process the recieved data
                             self.removeOldTracks() #remove old data from the RAM
+                            self.airborneDataWriteDetection() #write airbone flight data
 
                         if '\n' in buffer:
                             buffer = '' #delete remaining buffer contents if too many messages were processed
