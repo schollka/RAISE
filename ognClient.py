@@ -525,7 +525,7 @@ class OgnClient:
 
                     if recentPoints:
                         #store data in database
-                        self.databaseService.saveTrack(trackDeque=recentPoints, category="departure")
+                        self.databaseService.saveTrack(trackDeque=recentPoints, aircraftId=aircraftId, category="departure")
                         print(f"\n[DB] Dumping {len(recentPoints)} points for {aircraftId} to database as category departure.")
         
             # write in-flight data
@@ -586,7 +586,7 @@ class OgnClient:
 
         if recentPoints:
             #store data into the database
-            self.databaseService.saveTrack(trackDeque=recentPoints, category=category)
+            self.databaseService.saveTrack(trackDeque=recentPoints, aircraftId=aircraftId, category=category)
             print(f"\n[DB] Dumping {len(recentPoints)} points for {aircraftId} to database as category {category}.")
 
         if category == 'inFlight':

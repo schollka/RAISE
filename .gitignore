@@ -2,7 +2,7 @@
 activateVenv.bat
 startVenv.ps1
 *.pkl
-*.db
+*.db*
 parameters.yaml
 
 # Byte-compiled / optimized / DLL files

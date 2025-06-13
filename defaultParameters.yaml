@@ -17,6 +17,8 @@ systemParameters:
 
 databaseParameters:
   DATABASE_PATH: "flightData.db"        #path to the DB that stores all flight data
+  PRIVATE_AIRCRAFT_ID: True             #
+  PRIVATE_TIMESTAMP: True               #
 
 
 #airport parameters

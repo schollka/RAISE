@@ -13,6 +13,7 @@ class TrackPoint(Base):
 
     id = Column(Integer, primary_key=True)
     flightId = Column(Integer)
+    aircraftId = Column(String)
     category = Column(String)
 
     #time and location
@@ -73,7 +74,7 @@ class DatabaseService:
         Base.metadata.create_all(self.engine)
         self.Session = sessionmaker(bind=self.engine)
 
-    def saveTrack(self, trackDeque: deque, category: str = "default"):
+    def saveTrack(self, trackDeque: deque, aircraftId: str = "private", category: str = "default"):
         #writing track data to the database
         if not trackDeque:
             return  #no data available
@@ -85,8 +86,15 @@ class DatabaseService:
 
         for point in trackDeque:
             #convert data into structure for each data point
+            #privatize the aircraft ID if requested by the user
+            if self.parameters["PRIVATE_AIRCRAFT_ID"]:
+                thisAircraftId="private"
+            else:
+                thisAircraftId=aircraftId
+        
             trackPoint = TrackPoint(
                 flightId=nextFlightId,
+                aircraftId=thisAircraftId,
                 category=category,
                 timestamp=point["timestamp"],
                 time=point["time"],
