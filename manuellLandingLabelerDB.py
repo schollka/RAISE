@@ -4,9 +4,11 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.backend_bases import MouseEvent
 from matplotlib.widgets import Button
+from matplotlib.patches import Circle
 import os
 import shutil
 import yaml
+import math
 
 sourceCodeDir = os.path.dirname(os.path.abspath(__file__)) #get the directory of the source code
 parameterFile = os.path.join(sourceCodeDir, "parameters.yaml") #build the absolute file path of the expected parameter file
@@ -21,6 +23,9 @@ with open(parameterFile, "r") as file: #load parameters from file, contains eith
 databaseParameters = allParams["databaseParameters"]
 airportParameters = allParams["airportParameters"]
 stateEstimationParameters = allParams["stateEstimationParameters"]
+
+kmPerDegreeLat = 111  # Näherung
+kmPerDegreeLon = 111 * abs(math.cos(math.radians(airportParameters["AIRPORT_LATITUDE"])))
 
 # Verbindung zur SQLite-Datenbank
 conn = sqlite3.connect(databaseParameters["DATABASE_PATH"])
@@ -94,6 +99,19 @@ for i, flight_id in enumerate(arrival_flight_ids["flightId"]):
 
     fig, ax = plt.subplots(figsize=(10, 6))
     ax.plot(lon, lat, label="Flugroute")
+    ax.plot(airportParameters["AIRPORT_LONGITUDE"], airportParameters["AIRPORT_LATITUDE"], marker='x', color='black', markersize=12, mew=3, label='Airport')
+    radiusDegLat = stateEstimationParameters["ON_GROUND_POSITION_RADIUS"] / 1000 / kmPerDegreeLat
+    radiusDegLon = stateEstimationParameters["ON_GROUND_POSITION_RADIUS"] / 1000 / kmPerDegreeLon
+    circle = Circle(
+        (airportParameters["AIRPORT_LONGITUDE"], airportParameters["AIRPORT_LATITUDE"]),
+        radius=radiusDegLon,
+        edgecolor='black',
+        facecolor='none',
+        linewidth=1.5,
+        linestyle='--',
+        label=f'{int(stateEstimationParameters["ON_GROUND_POSITION_RADIUS"])} m Radius'
+    )
+    ax.add_patch(circle)
     ax.set_title(f"flightId {flight_id} – Klick auf Startpunkt des Landeanflugs")
     ax.set_xlabel("Longitude")
     ax.set_ylabel("Latitude")
