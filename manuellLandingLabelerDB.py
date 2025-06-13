@@ -4,46 +4,53 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.backend_bases import MouseEvent
 from matplotlib.widgets import Button
-from matplotlib.patches import Circle
 import os
 import shutil
 import yaml
 import math
 
-sourceCodeDir = os.path.dirname(os.path.abspath(__file__)) #get the directory of the source code
-parameterFile = os.path.join(sourceCodeDir, "parameters.yaml") #build the absolute file path of the expected parameter file
-defaultParameters = os.path.join(sourceCodeDir, "defaultParameters.yaml") #build the absolute file path of the default parameter file
+import geopandas as gpd
+import contextily as cx
+from shapely.geometry import Point
 
-# Check if parameterFile exists and copy default if nonexistent
+# Maximize plot window (only works with some backends)
+plt.switch_backend("tkagg")
+mng = plt.get_current_fig_manager()
+try:
+    mng.window.state("zoomed")
+except AttributeError:
+    try:
+        mng.frame.Maximize(True)
+    except AttributeError:
+        pass  # Not supported in this environment
+
+sourceCodeDir = os.path.dirname(os.path.abspath(__file__))
+parameterFile = os.path.join(sourceCodeDir, "parameters.yaml")
+defaultParameters = os.path.join(sourceCodeDir, "defaultParameters.yaml")
+
 if not os.path.exists(parameterFile):
-    shutil.copy(defaultParameters, parameterFile) #copy default parameters
-#Load parameters
-with open(parameterFile, "r") as file: #load parameters from file, contains either custom values or the copied default values
+    shutil.copy(defaultParameters, parameterFile)
+
+with open(parameterFile, "r") as file:
     allParams = yaml.safe_load(file)
+
 databaseParameters = allParams["databaseParameters"]
 airportParameters = allParams["airportParameters"]
 stateEstimationParameters = allParams["stateEstimationParameters"]
 
-kmPerDegreeLat = 111  # Näherung
+kmPerDegreeLat = 111
 kmPerDegreeLon = 111 * abs(math.cos(math.radians(airportParameters["AIRPORT_LATITUDE"])))
 
-# Verbindung zur SQLite-Datenbank
 conn = sqlite3.connect(databaseParameters["DATABASE_PATH"])
 cursor = conn.cursor()
 
-# Lade alle Flüge mit category = 'arrival'
 arrival_flight_ids = pd.read_sql_query(
     "SELECT DISTINCT flightId FROM track_points WHERE category = 'arrival';", conn
 )
 
-# Liste zur Speicherung aller Änderungen für Undo
-undo_log = []
-
-# Interaktive Auswahl und Datenbank-Update
 for i, flight_id in enumerate(arrival_flight_ids["flightId"]):
-    print(f"Flug {i+1}/{len(arrival_flight_ids)}: flightId = {flight_id}")
+    print(f"Flight {i+1}/{len(arrival_flight_ids)}: flightId = {flight_id}")
 
-    # Lade alle Trackpunkte dieses Flugs
     track_data = pd.read_sql_query(
         f"""
         SELECT id, time, altitude, lat, lon, state
@@ -56,7 +63,6 @@ for i, flight_id in enumerate(arrival_flight_ids["flightId"]):
     if track_data.empty:
         continue
 
-    # Zeit umwandeln
     track_data["time"] = pd.to_timedelta(track_data["time"])
     lat = track_data["lat"].values
     lon = track_data["lon"].values
@@ -64,91 +70,82 @@ for i, flight_id in enumerate(arrival_flight_ids["flightId"]):
     ids = track_data["id"].values
 
     selected_index = {"value": None}
-    changed_entries = []
+    skip_flight = {"value": False}
+
+    # GeoDataFrame erstellen
+    gdf = gpd.GeoDataFrame(track_data, geometry=gpd.points_from_xy(track_data["lon"], track_data["lat"]), crs="EPSG:4326")
+    gdf = gdf.to_crs(epsg=3857)
 
     def onclick(event: MouseEvent):
         if event.inaxes != ax:
             return
-        dist = (lat - event.ydata)**2 + (lon - event.xdata)**2
-        idx = dist.argmin()
+        x_click, y_click = event.xdata, event.ydata
+        distances = ((gdf.geometry.x - x_click)**2 + (gdf.geometry.y - y_click)**2)
+        idx = distances.argmin()
         selected_index["value"] = idx
 
         ax.clear()
-        ax.plot(lon, lat, label="Flugroute")
-        ax.scatter(lon[idx:], lat[idx:], color="orange", label="Landing", s=20)
-        ax.scatter(lon[idx], lat[idx], color="red", label="Start Landeanflug", zorder=5)
-        ax.set_title(f"flightId {flight_id} – Klick auf Startpunkt des Landeanflugs")
-        ax.set_xlabel("Longitude")
-        ax.set_ylabel("Latitude")
+        gdf.plot(ax=ax, label="Flight path", alpha=0.6, markersize=10)
+        gdf.iloc[idx:].plot(ax=ax, color="orange", edgecolor="orange", label="Landing", markersize=10)
+        gdf.iloc[[idx]].plot(ax=ax, color="red", edgecolor="red", label="Landing start", markersize=30)
+        airport_geom = Point(airportParameters["AIRPORT_LONGITUDE"], airportParameters["AIRPORT_LATITUDE"])
+        airport_gdf = gpd.GeoDataFrame(geometry=[airport_geom], crs="EPSG:4326").to_crs(epsg=3857)
+        airport_gdf.plot(ax=ax, color="black", marker="x", markersize=100, label="Airport")
+        cx.add_basemap(ax, source=cx.providers.OpenStreetMap.Mapnik)
+        ax.set_title(f"flightId {flight_id} – Click start of landing")
         ax.legend()
         fig.canvas.draw()
 
     def on_done(event):
         plt.close()
 
-    def on_undo(event):
-        if undo_log:
-            last_change = undo_log.pop()
-            for entry in last_change:
-                cursor.execute(
-                    "UPDATE track_points SET state = ? WHERE id = ?;",
-                    (entry["old_state"], entry["id"])
-                )
-            conn.commit()
-            print(f"→ Änderungen für flightId {last_change[0]['flightId']} rückgängig gemacht.")
+    def on_skip(event):
+        skip_flight["value"] = True
+        plt.close()
 
     fig, ax = plt.subplots(figsize=(10, 6))
-    ax.plot(lon, lat, label="Flugroute")
-    ax.plot(airportParameters["AIRPORT_LONGITUDE"], airportParameters["AIRPORT_LATITUDE"], marker='x', color='black', markersize=12, mew=3, label='Airport')
-    radiusDegLat = stateEstimationParameters["ON_GROUND_POSITION_RADIUS"] / 1000 / kmPerDegreeLat
-    radiusDegLon = stateEstimationParameters["ON_GROUND_POSITION_RADIUS"] / 1000 / kmPerDegreeLon
-    circle = Circle(
-        (airportParameters["AIRPORT_LONGITUDE"], airportParameters["AIRPORT_LATITUDE"]),
-        radius=radiusDegLon,
-        edgecolor='black',
-        facecolor='none',
-        linewidth=1.5,
-        linestyle='--',
-        label=f'{int(stateEstimationParameters["ON_GROUND_POSITION_RADIUS"])} m Radius'
-    )
-    ax.add_patch(circle)
-    ax.set_title(f"flightId {flight_id} – Klick auf Startpunkt des Landeanflugs")
-    ax.set_xlabel("Longitude")
-    ax.set_ylabel("Latitude")
+    try:
+        mng = plt.get_current_fig_manager()
+        mng.window.state("zoomed")
+    except Exception:
+        pass
+
+    gdf.plot(ax=ax, label="Flight path", alpha=0.6, markersize=10)
+    airport_geom = Point(airportParameters["AIRPORT_LONGITUDE"], airportParameters["AIRPORT_LATITUDE"])
+    airport_gdf = gpd.GeoDataFrame(geometry=[airport_geom], crs="EPSG:4326").to_crs(epsg=3857)
+    airport_gdf.plot(ax=ax, color="black", marker="x", markersize=100, label="Airport")
+    cx.add_basemap(ax, source=cx.providers.OpenStreetMap.Mapnik)
+    ax.set_title(f"flightId {flight_id} – Click start of landing")
     ax.legend()
 
     button_done_ax = plt.axes([0.75, 0.01, 0.1, 0.05])
-    button_done = Button(button_done_ax, "Fertig")
+    button_done = Button(button_done_ax, "Done")
     button_done.on_clicked(on_done)
 
-    button_undo_ax = plt.axes([0.6, 0.01, 0.1, 0.05])
-    button_undo = Button(button_undo_ax, "Undo")
-    button_undo.on_clicked(on_undo)
+    button_skip_ax = plt.axes([0.6, 0.01, 0.1, 0.05])
+    button_skip = Button(button_skip_ax, "Skip flight")
+    button_skip.on_clicked(on_skip)
 
     cid = fig.canvas.mpl_connect("button_press_event", onclick)
     plt.show()
 
+    if skip_flight["value"]:
+        print("→ Flight skipped.")
+        continue
+
     if selected_index["value"] is not None:
         start_idx = selected_index["value"]
-
+        changed_count = 0
         for idx in range(start_idx, len(track_data)):
             if states[idx] == "airborne":
                 track_point_id = int(ids[idx])
-                old_state = states[idx]
                 cursor.execute(
                     "UPDATE track_points SET state = 'landing' WHERE id = ?;",
                     (track_point_id,)
                 )
-                changed_entries.append({
-                    "id": track_point_id,
-                    "old_state": old_state,
-                    "flightId": int(flight_id)
-                })
+                changed_count += 1
 
         conn.commit()
-        if changed_entries:
-            undo_log.append(changed_entries)
-            print(f"→ Aktualisiert: {len(changed_entries)} Punkte auf 'landing' gesetzt (Undo möglich).")
+        print(f"→ Updated: {changed_count} points set to 'landing'.")
 
-# Verbindung schließen
 conn.close()
