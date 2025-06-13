@@ -12,7 +12,6 @@ import math
 import geopandas as gpd
 import contextily as cx
 from shapely.geometry import Point
-import tkinter as tk
 
 sourceCodeDir = os.path.dirname(os.path.abspath(__file__))
 parameterFile = os.path.join(sourceCodeDir, "parameters.yaml")
@@ -37,6 +36,14 @@ cursor = conn.cursor()
 arrival_flight_ids = pd.read_sql_query(
     "SELECT DISTINCT flightId FROM track_points WHERE category = 'arrival';", conn
 )
+
+# Farben pro Status
+state_colors = {
+    "airborne": "blue",
+    "onGround": "green",
+    "transitionAirGrnd": "purple",
+    "landing": "orange"
+}
 
 for i, flight_id in enumerate(arrival_flight_ids["flightId"]):
     print(f"Flight {i+1}/{len(arrival_flight_ids)}: flightId = {flight_id}")
@@ -75,12 +82,20 @@ for i, flight_id in enumerate(arrival_flight_ids["flightId"]):
         selected_index["value"] = idx
 
         ax.clear()
-        gdf.plot(ax=ax, label="Flight path", alpha=0.6, markersize=10)
-        gdf.iloc[idx:].plot(ax=ax, color="orange", edgecolor="orange", label="Landing", markersize=10)
+        for state, color in state_colors.items():
+            mask = gdf["state"] == state
+            if mask.any():
+                gdf[mask].plot(ax=ax, label=state, color=color, edgecolor=color, markersize=10)
+
+
+        # Landephase einfärben
+        gdf.iloc[idx:].plot(ax=ax, color="orange", edgecolor="orange", label="Landing (marked)", markersize=10)
         gdf.iloc[[idx]].plot(ax=ax, color="red", edgecolor="red", label="Landing start", markersize=30)
+
         airport_geom = Point(airportParameters["AIRPORT_LONGITUDE"], airportParameters["AIRPORT_LATITUDE"])
         airport_gdf = gpd.GeoDataFrame(geometry=[airport_geom], crs="EPSG:4326").to_crs(epsg=3857)
         airport_gdf.plot(ax=ax, color="black", marker="x", markersize=100, label="Airport")
+
         cx.add_basemap(ax, source=cx.providers.OpenStreetMap.Mapnik)
         ax.set_title(f"flightId {flight_id} – Click start of landing")
         ax.legend()
@@ -98,12 +113,18 @@ for i, flight_id in enumerate(arrival_flight_ids["flightId"]):
         mng = plt.get_current_fig_manager()
         mng.frame.Maximize(True)
     except Exception:
-        pass  # Not supported in this environment
+        pass
 
-    gdf.plot(ax=ax, label="Flight path", alpha=0.6, markersize=10)
+    for state, color in state_colors.items():
+        mask = gdf["state"] == state
+        if mask.any():
+            gdf[mask].plot(ax=ax, label=state, color=color, edgecolor=color, markersize=10)
+
+
     airport_geom = Point(airportParameters["AIRPORT_LONGITUDE"], airportParameters["AIRPORT_LATITUDE"])
     airport_gdf = gpd.GeoDataFrame(geometry=[airport_geom], crs="EPSG:4326").to_crs(epsg=3857)
     airport_gdf.plot(ax=ax, color="black", marker="x", markersize=100, label="Airport")
+
     cx.add_basemap(ax, source=cx.providers.OpenStreetMap.Mapnik)
     ax.set_title(f"flightId {flight_id} – Click start of landing")
     ax.legend()
