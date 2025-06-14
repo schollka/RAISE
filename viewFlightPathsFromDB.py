@@ -13,7 +13,7 @@ import geopandas as gpd
 import contextily as cx
 from shapely.geometry import Point
 
-# Argumente einlesen
+#read arguments
 if len(sys.argv) > 1:
     filter_categories = [arg.strip() for arg in sys.argv[1:]]
     print(f"Filtering for categories: {filter_categories}")
@@ -21,26 +21,24 @@ else:
     filter_categories = None
     print("No category filter specified – showing all flights.")
 
-sourceCodeDir = os.path.dirname(os.path.abspath(__file__))
-parameterFile = os.path.join(sourceCodeDir, "parameters.yaml")
-defaultParameters = os.path.join(sourceCodeDir, "defaultParameters.yaml")
+sourceCodeDir = os.path.dirname(os.path.abspath(__file__)) #get the directory of the source code
+parameterFile = os.path.join(sourceCodeDir, "parameters.yaml") #build the absolute file path of the expected parameter file
 
-if not os.path.exists(parameterFile):
-    shutil.copy(defaultParameters, parameterFile)
-
-with open(parameterFile, "r") as file:
+#Load parameters
+with open(parameterFile, "r") as file: #load parameters from file, contains either custom values or the copied default values
     allParams = yaml.safe_load(file)
 
-databaseParameters = allParams["databaseParameters"]
-airportParameters = allParams["airportParameters"]
-stateEstimationParameters = allParams["stateEstimationParameters"]
+databaseParameters = allParams["databaseParameters"] #get the DB parameters
+airportParameters = allParams["airportParameters"] #get airport parameters
 
+#geometry parameters
 kmPerDegreeLat = 111
 kmPerDegreeLon = 111 * abs(math.cos(math.radians(airportParameters["AIRPORT_LATITUDE"])))
 
+#connect to the database from the in the parameter file specified directory
 conn = sqlite3.connect(databaseParameters["DATABASE_PATH"])
 
-# Lade alle relevanten Flüge
+#load relevent flights
 if filter_categories:
     placeholder = ",".join("?" for _ in filter_categories)
     query = f"SELECT DISTINCT flightId FROM track_points WHERE category IN ({placeholder})"
@@ -48,6 +46,7 @@ if filter_categories:
 else:
     arrival_flight_ids = pd.read_sql_query("SELECT DISTINCT flightId FROM track_points", conn)
 
+#define colors
 state_colors = {
     "airborne": "blue",
     "onGround": "green",
@@ -55,6 +54,7 @@ state_colors = {
     "landing": "orange"
 }
 
+#get data from database
 for i, flight_id in enumerate(arrival_flight_ids["flightId"]):
     print(f"Showing flight {i+1}/{len(arrival_flight_ids)}: flightId = {flight_id}")
 
@@ -69,7 +69,8 @@ for i, flight_id in enumerate(arrival_flight_ids["flightId"]):
 
     if track_data.empty:
         continue
-
+    
+    #plot data
     gdf = gpd.GeoDataFrame(track_data, geometry=gpd.points_from_xy(track_data["lon"], track_data["lat"]), crs="EPSG:4326")
     gdf = gdf.to_crs(epsg=3857)
 
