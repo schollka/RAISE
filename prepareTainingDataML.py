@@ -90,4 +90,4 @@ outputDir = os.path.dirname(os.path.abspath(databaseParameters["DATABASE_PATH"])
 np.save(os.path.join(outputDir, "X.npy"), X)
 np.save(os.path.join(outputDir, "y.npy"), y)
 
-print(f"Daten gespeichert in:\n{os.path.join(outputDir, 'X.npy')}\n{os.path.join(outputDir, 'y.npy')}")
+print(f"Data saved in:\n{os.path.join(outputDir, 'X.npy')}\n{os.path.join(outputDir, 'y.npy')}")
