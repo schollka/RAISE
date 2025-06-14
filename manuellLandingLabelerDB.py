@@ -5,7 +5,6 @@ import matplotlib.pyplot as plt
 from matplotlib.backend_bases import MouseEvent
 from matplotlib.widgets import Button
 import os
-import shutil
 import yaml
 import math
 
@@ -15,10 +14,6 @@ from shapely.geometry import Point
 
 sourceCodeDir = os.path.dirname(os.path.abspath(__file__))
 parameterFile = os.path.join(sourceCodeDir, "parameters.yaml")
-defaultParameters = os.path.join(sourceCodeDir, "defaultParameters.yaml")
-
-if not os.path.exists(parameterFile):
-    shutil.copy(defaultParameters, parameterFile)
 
 with open(parameterFile, "r") as file:
     allParams = yaml.safe_load(file)
