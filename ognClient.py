@@ -518,8 +518,9 @@ class OgnClient:
                 flightState = "unknown" #if not enough points are present for a robust average, then the aircrafts state is unknown
 
         if self.machineLearningParameters["ENABLE_MODEL"] and flightState == "airborne":
-            flag = self.predictLanding(track=track)
-            print(flag)
+            landingFlag = self.predictLanding(track=track)
+            if landingFlag:
+                flightState = "landing"
 
         flgStableStateChanged, newStates = self.debounceFlightState(aircraftId, flightState) #debounce the computed state
         self.detectFlightEvent(aircraftId=aircraftId, stateChanged=flgStableStateChanged)
@@ -567,8 +568,9 @@ class OgnClient:
                     recentPoints = [point for point in track if lowerBound <= point['timestamp'] <= upperBound] #extract the points inside the time window
 
                     if recentPoints:
-                        #store data in database
-                        self.databaseService.saveTrack(trackDeque=recentPoints, aircraftId=aircraftId, category="departure")
+                        if len(recentPoints) >= self.databaseParameters["MINIMUM_NUMBER_DATAPOINTS"]:
+                            #store data in database if enough points are available
+                            self.databaseService.saveTrack(trackDeque=recentPoints, aircraftId=aircraftId, category="departure")
         
             # write in-flight data
             if aircraft.get("stableState") != "airborne":
@@ -627,8 +629,9 @@ class OgnClient:
         recentPoints = [point for point in track if point['timestamp'] >= cutoff] #extract all points in the time window
 
         if recentPoints:
-            #store data into the database
-            self.databaseService.saveTrack(trackDeque=recentPoints, aircraftId=aircraftId, category=category)
+            if len(recentPoints) >= self.databaseParameters["MINIMUM_NUMBER_DATAPOINTS"]:
+            #store data in database if enough points are available
+                self.databaseService.saveTrack(trackDeque=recentPoints, aircraftId=aircraftId, category=category)
 
     def processMessageLine(self, line):
         #used when the system runs in synchrone mode and recieves data from ogn-decode

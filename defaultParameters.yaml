@@ -21,7 +21,7 @@ databaseParameters:
   DATABASE_PATH: "C:/Users/Kai/OneDrive - bwedu/Uni/SS 25/09_EffizienzProgrammieren/02_Database/02_Database/flightData_testing.db"        #path to the DB that stores all flight data
   PRIVATE_AIRCRAFT_ID: True             #the aircraft identifier is not written to the database if this setting is set to true [boolean]
   PRIVATE_TIMESTAMP: True               #the date and year of the flight is not written to the database if this setting is set to true [boolean]
-
+  MINIMUM_NUMBER_DATAPOINTS: 60         #minimum number of data points for a data set to be written into the database [-]
 
 #airport parameters
 airportParameters:
