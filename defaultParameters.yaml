@@ -17,9 +17,10 @@ systemParameters:
   MAX_DIST_TO_AIRPORT_IN_FLIGHT_STORAGE: 3500  #maximum average distance to the airport for a in flight data storage event [km]
 
 databaseParameters:
-  DATABASE_PATH: "C:/Users/Kai/OneDrive - bwedu/Uni/SS 25/09_EffizienzProgrammieren/02_Database/02_Database/flightData.db"        #path to the DB that stores all flight data
-  PRIVATE_AIRCRAFT_ID: True             #the aircraft identifier is not written to the database if this setting is set to true
-  PRIVATE_TIMESTAMP: True               #the date and year of the flight is not written to the database if this setting is set to true
+  ENABLE_DATABASE: True                 #if set to ture, then the arrival, deparure and in flight data is written to the specified database [boolean]
+  DATABASE_PATH: "C:/Users/Kai/OneDrive - bwedu/Uni/SS 25/09_EffizienzProgrammieren/02_Database/02_Database/flightData_testing.db"        #path to the DB that stores all flight data
+  PRIVATE_AIRCRAFT_ID: True             #the aircraft identifier is not written to the database if this setting is set to true [boolean]
+  PRIVATE_TIMESTAMP: True               #the date and year of the flight is not written to the database if this setting is set to true [boolean]
 
 
 #airport parameters
@@ -44,5 +45,10 @@ signalReceptionParameters:
 
 #machine learning parameters
 machineLearningParameters:
-  SQEUENCE_LENGTH: 60               #size of the rolling time window for the ML landing detection [s]
-  MIN_NUM_POINTS_SEQUENCE: 60       #minimum number of points in the time window used for ML landing detection [-]
+  ENABLE_MODEL: True                #if set to true, the provided model is used for the landing prediction. False disables any predictions [boolean]
+  MODEL_PATH: "C:/Users/Kai/OneDrive - bwedu/Uni/SS 25/09_EffizienzProgrammieren/04_Mode/01_RAISE.keras" #path to the trained model used for predicting landings at this airport
+  #seuqence generation
+  SEQUENCE_TIME_WINDOW: 60          #size of the rolling time window for the ML landing detection [s]
+  SEQUENCE_LENGTH: 60               #number of points in the rolling time window, SEQUENCE_TIME_WINDOW * frequencyRecievedMessages [-]
+  MIN_NUM_POINTS_SEQUENCE: 50       #minimum number of points in the time window used for ML landing detection [-]
+  FEATURES: ["altitude", "groundSpeed", "climbRate", "track", "turnRate"] #features from the data set used for the model prediction

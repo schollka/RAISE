@@ -16,10 +16,11 @@ databaseParameters = allParams["databaseParameters"] #get the DB parameters
 machineLearningParameters = allParams["machineLearningParameters"] #get the ML parameters
 
 #parameters
-sequenceLength = machineLearningParameters["SQEUENCE_LENGTH"] #get sequence length for each time window
+sequenceTimeWindow = machineLearningParameters["SEQUENCE_TIME_WINDOW"] #get the time window size for each sequence
+sequenceLength = machineLearningParameters["SEQUENCE_LENGTH"] #get sequence length for each time window
 minPointsRequired = machineLearningParameters["MIN_NUM_POINTS_SEQUENCE"] #get the minimum number of points per time window
 
-features = ["altitude", "groundSpeed", "climbRate", "track", "turnRate"] #features used for the model
+features = machineLearningParameters["FEATURES"] #features used for the model
 
 #connect to the databse
 conn = sqlite3.connect(databaseParameters["DATABASE_PATH"])
@@ -55,7 +56,7 @@ for flightId, flight in tqdm(data.groupby("flightId"), desc="Processing flights"
 
     for startIdx in range(len(flight)): #itterate over the time array and find time windows
         startTime = timeArray[startIdx] #get start time
-        endTime = startTime + sequenceLength #compute end time
+        endTime = startTime + sequenceTimeWindow #compute end time
 
         window = flight[(flight["timeSec"] >= startTime) & (flight["timeSec"] < endTime)] #get points inside this time window
         n = len(window) #get number of points in time window
