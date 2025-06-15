@@ -1,3 +1,5 @@
+print("Loading modules")
+
 import socket
 import re
 from collections import defaultdict, deque
@@ -11,7 +13,12 @@ import os
 import shutil
 import random
 import numpy as np
-from webServer import connect_aircraft_tracks
+from webServer import connect_aircraft_tracks, push_position_update
+import asyncio
+import threading
+import uvicorn
+
+print("Modules loaded. Initilizing System")
 
 ####################################################
 ################# OGN Client #######################
@@ -128,12 +135,14 @@ class OgnClient:
 
             #signal states
             "receptionState": "normal" #state of the signal reception
-        }
+        })
         
-        #webserver
-        connect_aircraft_tracks(self.aircraftTracks)  #connect RAISE data to the web server
+        #webserver start up
+        def start_web_server():
+            uvicorn.run("webServer:app", host="0.0.0.0", port=8000)
 
-        )
+        threading.Thread(target=start_web_server, daemon=True).start() #start webserver
+        connect_aircraft_tracks(self.aircraftTracks)  #connect RAISE data to the web server
 
     class TimeManager:
         '''
@@ -653,6 +662,7 @@ class OgnClient:
         aircraftId = parsed["aircraft"] #get the aircraft ID from message
         self.aircraftTracks[aircraftId]["track"].append(parsed) #append the recieved data
         self.stateMachine(aircraftId) #compute the state of the aircraft
+        asyncio.create_task(push_position_update(aircraftId)) #push the data via webserver
 
     def printInfos(self):
         #print basic infos to the terminal
@@ -710,6 +720,7 @@ class OgnClient:
         aircraftId = data["aircraft"] #get the aircraft ID from the recieved data
         self.aircraftTracks[aircraftId]["track"].append(data) #store data in deque
         self.stateMachine(aircraftId=aircraftId) #compute the state of the aircraft
+        asyncio.run(push_position_update(aircraftId)) #push the data via webserver
 
 
     def monitorSignalReception(self):

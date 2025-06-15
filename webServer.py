@@ -4,13 +4,12 @@ from fastapi.responses import JSONResponse
 from typing import Dict, List
 import asyncio
 
-#initialize the FastAPI app
 app = FastAPI()
 
 #enable CORS so that frontend JavaScript can access the API
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  #allow all origins
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -26,12 +25,12 @@ websocketClients: List[WebSocket] = []
 @app.get("/aircrafts")
 async def get_all_aircrafts():
     if externalAircraftTracks is None:
-        return JSONResponse([])  #return empty list if no data reference is set
+        return JSONResponse([])
 
     result = []
     for aircraftId, entry in externalAircraftTracks.items():
         if not entry["track"]:
-            continue  #skip aircrafts with no track data
+            continue
         lastPoint = entry["track"][-1]  #get latest position
         result.append({
             "id": aircraftId,
@@ -48,8 +47,14 @@ async def get_all_aircrafts():
 async def get_track(aircraft_id: str):
     if externalAircraftTracks is None or aircraft_id not in externalAircraftTracks:
         return JSONResponse(status_code=404, content={"error": "Aircraft not found"})
-    track = externalAircraftTracks[aircraft_id]["track"]
-    return JSONResponse(list(track))  #convert deque to list for JSON serialization
+
+    #prepare track with only lat/lon
+    track = []
+    for point in externalAircraftTracks[aircraft_id]["track"]:
+        if "lat" in point and "lon" in point:
+            track.append({"lat": point["lat"], "lon": point["lon"]})
+
+    return JSONResponse(track)
 
 #WebSocket endpoint: accepts and stores connection for real-time updates
 @app.websocket("/ws")
