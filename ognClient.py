@@ -139,7 +139,7 @@ class OgnClient:
         
         #webserver start up
         def start_web_server():
-            uvicorn.run("webServer:app", host="0.0.0.0", port=8000)
+            uvicorn.run("webServer:app", host="0.0.0.0", port=8000, reload=False)
 
         set_map_config(self.airportParameters) #set the parameters for the map
         threading.Thread(target=start_web_server, daemon=True).start() #start webserver
