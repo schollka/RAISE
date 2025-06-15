@@ -10,6 +10,7 @@ import yaml
 import os
 import shutil
 import random
+import numpy as np
 
 ####################################################
 ################# OGN Client #######################
@@ -86,6 +87,7 @@ class OgnClient:
         self.stateEstimationParameters = allParams["stateEstimationParameters"] #parameters used for state estimation
         self.signalReceptionParameters = allParams["signalReceptionParameters"] #signal reception state estimation parameters
         self.databaseParameters = allParams["databaseParameters"] #parameters for the database
+        self.machineLearningParameters = allParams["machineLearningParameters"] #ML specific parameters
 
         ####################################################
         ################# initialize system ################
@@ -94,7 +96,12 @@ class OgnClient:
         self.host = self.systemParameters["HOST"] #define the host adress of the ogn-decode server
         self.port = self.systemParameters["PORT"] #define the port of the ogn-decode TCP server
         self.time = self.TimeManager() #initialize system time
-        self.databaseService = DatabaseService(dbParameters=self.databaseParameters)
+        self.databaseService = DatabaseService(dbParameters=self.databaseParameters) #initilize database service
+        if self.machineLearningParameters["ENABLE_MODEL"]:
+            from keras.models import load_model
+            self.model = load_model(self.machineLearningParameters["MODEL_PATH"]) #load the ML model from the specified path
+        else:
+            self.model = None
 
         #initialize aircraft tracks dictionary
         self.aircraftTracks = defaultdict(lambda: {
@@ -406,7 +413,39 @@ class OgnClient:
             aircraft["detectedTakeOff"] = eventDict["detectedTakeOff"]
             aircraft["detectedTouchDown"] = eventDict["detectedTouchDown"]
             lastDataPoint["flightEvent"] = eventDict
-   
+
+    def predictLanding(self, track):
+        #extract points inside the time window
+        now = self.time.getSystemTime()
+        sequenceLength = self.machineLearningParameters["SEQUENCE_LENGTH"]
+        sequenceTimeWindow = self.machineLearningParameters["SEQUENCE_TIME_WINDOW"]
+        windowStart = now - timedelta(seconds=sequenceTimeWindow)
+        recentPoints = [p for p in track if p["timestamp"] >= windowStart] #get the corresponding data points
+
+        if len(recentPoints) < self.machineLearningParameters["MIN_NUM_POINTS_SEQUENCE"]:
+            return False  #not enough data points
+
+        #extract features from the time window into array
+        features = self.machineLearningParameters["FEATURES"]
+        featureArray = np.array([
+            [p[f] for f in features]
+            for p in recentPoints
+        ])
+
+        n = len(featureArray) #get length of feature sequence
+
+        if n < sequenceLength: #pad the sequence with the last data point when to little points are present
+            pad = np.tile(featureArray[-1], (sequenceLength - n, 1))
+            featureArray = np.vstack([featureArray, pad])
+        elif n > sequenceLength: #subsample sequence when to much data points are present
+            idxs = np.linspace(0, n - 1, sequenceLength).astype(int)
+            featureArray = featureArray[idxs]
+
+        inputArray = np.expand_dims(featureArray, axis=0)  #Shape: (1, sequenceLength, numFeatures)
+        prob = self.model.predict(inputArray, verbose=0)[0][0] #execute model and get probability of landing
+
+        return prob > self.machineLearningParameters["REALTIME_PROBABILITY_THRESHOLD"] #return flag
+
     def stateMachine(self, aircraftId):
         '''
         The state machine classifies the aircrafts current state based on the newest data and a set of parameters
@@ -415,6 +454,7 @@ class OgnClient:
             airborne: the aircraft is currently airborne
             transitionAirGrnd: the aircraft is in a transition state between onGound and airborne => take off or final approach
             unknown: the state could not be classified
+            landing: the aircraft is landing as determined by the ML model
         '''
 
         aircraft = self.aircraftTracks[aircraftId] #get the corresponding aircraft
@@ -476,6 +516,10 @@ class OgnClient:
                     flightState = "unknown" #if again no classification is met, then the aircrafts state is unknown
             else:
                 flightState = "unknown" #if not enough points are present for a robust average, then the aircrafts state is unknown
+
+        if self.machineLearningParameters["ENABLE_MODEL"] and flightState == "airborne":
+            flag = self.predictLanding(track=track)
+            print(flag)
 
         flgStableStateChanged, newStates = self.debounceFlightState(aircraftId, flightState) #debounce the computed state
         self.detectFlightEvent(aircraftId=aircraftId, stateChanged=flgStableStateChanged)

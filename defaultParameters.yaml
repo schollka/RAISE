@@ -45,10 +45,11 @@ signalReceptionParameters:
 
 #machine learning parameters
 machineLearningParameters:
-  ENABLE_MODEL: True                #if set to true, the provided model is used for the landing prediction. False disables any predictions [boolean]
-  MODEL_PATH: "C:/Users/Kai/OneDrive - bwedu/Uni/SS 25/09_EffizienzProgrammieren/04_Mode/01_RAISE.keras" #path to the trained model used for predicting landings at this airport
+  ENABLE_MODEL: True                  #if set to true, the provided model is used for the landing prediction. False disables any predictions [boolean]
+  MODEL_PATH: "C:/Users/Kai/OneDrive - bwedu/Uni/SS 25/09_EffizienzProgrammieren/04_Model/01_RAISE.keras" #path to the trained model used for predicting landings at this airport
+  REALTIME_PROBABILITY_THRESHOLD: 0.6 #the model has to compute a probability for landing higher then this treshold, to change the state to landing [-]
   #seuqence generation
-  SEQUENCE_TIME_WINDOW: 60          #size of the rolling time window for the ML landing detection [s]
-  SEQUENCE_LENGTH: 60               #number of points in the rolling time window, SEQUENCE_TIME_WINDOW * frequencyRecievedMessages [-]
-  MIN_NUM_POINTS_SEQUENCE: 50       #minimum number of points in the time window used for ML landing detection [-]
+  SEQUENCE_TIME_WINDOW: 60            #size of the rolling time window for the ML landing detection [s]
+  SEQUENCE_LENGTH: 60                 #number of points in the rolling time window, SEQUENCE_TIME_WINDOW * frequencyRecievedMessages [-]
+  MIN_NUM_POINTS_SEQUENCE: 50         #minimum number of points in the time window used for ML landing detection [-]
   FEATURES: ["altitude", "groundSpeed", "climbRate", "track", "turnRate"] #features from the data set used for the model prediction
