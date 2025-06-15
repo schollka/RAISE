@@ -48,6 +48,8 @@ machineLearningParameters:
   ENABLE_MODEL: True                  #if set to true, the provided model is used for the landing prediction. False disables any predictions [boolean]
   MODEL_PATH: "C:/Users/Kai/OneDrive - bwedu/Uni/SS 25/09_EffizienzProgrammieren/04_Model/01_RAISE.keras" #path to the trained model used for predicting landings at this airport
   REALTIME_PROBABILITY_THRESHOLD: 0.6 #the model has to compute a probability for landing higher then this treshold, to change the state to landing [-]
+  MAX_DISTANCE_TO_AIRPORT_FOR_PREDICTION: 3000 #maximum distance from the aircraft to the airport to trigger the model prediction for landing detection [m]
+  MAX_ALT_FOR_PREDICTION: 650         #maximum GPS altitude of the aircraft to trigger the model prediction for landing detection [m]
   #seuqence generation
   SEQUENCE_TIME_WINDOW: 60            #size of the rolling time window for the ML landing detection [s]
   SEQUENCE_LENGTH: 60                 #number of points in the rolling time window, SEQUENCE_TIME_WINDOW * frequencyRecievedMessages [-]

@@ -375,7 +375,7 @@ class OgnClient:
             else:
                 takeOff = False
 
-            #tpuch down detection
+            #touch down detection
             if prevState == "airborne" and currentState == "onGround":
                 #state transition path: airborne => onGround
                 touchDown = True
@@ -441,7 +441,7 @@ class OgnClient:
             idxs = np.linspace(0, n - 1, sequenceLength).astype(int)
             featureArray = featureArray[idxs]
 
-        inputArray = np.expand_dims(featureArray, axis=0)  #Shape: (1, sequenceLength, numFeatures)
+        inputArray = np.expand_dims(featureArray, axis=0)  #shape: (1, sequenceLength, numFeatures)
         prob = self.model.predict(inputArray, verbose=0)[0][0] #execute model and get probability of landing
 
         return prob > self.machineLearningParameters["REALTIME_PROBABILITY_THRESHOLD"] #return flag
@@ -518,9 +518,15 @@ class OgnClient:
                 flightState = "unknown" #if not enough points are present for a robust average, then the aircrafts state is unknown
 
         if self.machineLearningParameters["ENABLE_MODEL"] and flightState == "airborne":
-            landingFlag = self.predictLanding(track=track)
-            if landingFlag:
-                flightState = "landing"
+            #execute the model, when the feature is enabled and the current flight state is airborne
+            if (
+                altitude <= self.machineLearningParameters["MAX_ALT_FOR_PREDICTION"]
+                and distance <= self.machineLearningParameters["MAX_DISTANCE_TO_AIRPORT_FOR_PREDICTION"]
+            ):       
+                #check if the aircraft is near the airport to limit computational load     
+                landingFlag = self.predictLanding(track=track)
+                if landingFlag:
+                    flightState = "landing"
 
         flgStableStateChanged, newStates = self.debounceFlightState(aircraftId, flightState) #debounce the computed state
         self.detectFlightEvent(aircraftId=aircraftId, stateChanged=flgStableStateChanged)
