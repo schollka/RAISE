@@ -19,10 +19,22 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
-    const map = L.map('map').setView([48.7, 9.2], 9);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 18
-    }).addTo(map);
+    let map;
+
+    async function initMapCenteredOnAirport() {
+      const res = await fetch('http://localhost:8000/config');
+      const config = await res.json();
+      const airportLat = config.airport.lat;
+      const airportLon = config.airport.lon;
+      const defaultZoom = config.mapZoom || 12;
+
+      map = L.map('map').setView([airportLat, airportLon], defaultZoom);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 18
+      }).addTo(map);
+
+      startApplication();
+    }
 
     const aircraftMarkers = {}; //stores aircraft markers
     const aircraftTracks = {};  //stores polylines
@@ -100,50 +112,54 @@
       }, 30000); // refresh every 30 seconds
     }
 
-    map.on('click', () => {
-      if (selectedAircraft) {
-        if (aircraftTracks[selectedAircraft]) {
-          map.removeLayer(aircraftTracks[selectedAircraft]);
-        }
-        if (aircraftMarkers[selectedAircraft]) {
-          aircraftMarkers[selectedAircraft].setIcon(blueIcon);
-        }
-        selectedAircraft = null;
-        if (selectedTrackRefreshInterval) {
-          clearInterval(selectedTrackRefreshInterval);
-          selectedTrackRefreshInterval = null;
-        }
-      }
-    });
-
-    const socket = new WebSocket("ws://localhost:8000/ws");
-    socket.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      if (data.type === 'positionUpdate') {
-        const id = data.aircraftId;
-        const lat = data.lat;
-        const lon = data.lon;
-
-        if (aircraftMarkers[id]) {
-          aircraftMarkers[id].setLatLng([lat, lon]);
-        }
-
-        if (selectedAircraft === id) {
-          if (!aircraftTrackPoints[id]) aircraftTrackPoints[id] = [];
-          aircraftTrackPoints[id].push({ lat: lat, lon: lon });
-
-          const latlngs = aircraftTrackPoints[id].map(p => [p.lat, p.lon]);
-          if (aircraftTracks[id]) {
-            aircraftTracks[id].setLatLngs(latlngs);
-          } else {
-            aircraftTracks[id] = L.polyline(latlngs, { color: 'blue' }).addTo(map);
+    function startApplication() {
+      map.on('click', () => {
+        if (selectedAircraft) {
+          if (aircraftTracks[selectedAircraft]) {
+            map.removeLayer(aircraftTracks[selectedAircraft]);
+          }
+          if (aircraftMarkers[selectedAircraft]) {
+            aircraftMarkers[selectedAircraft].setIcon(blueIcon);
+          }
+          selectedAircraft = null;
+          if (selectedTrackRefreshInterval) {
+            clearInterval(selectedTrackRefreshInterval);
+            selectedTrackRefreshInterval = null;
           }
         }
-      }
-    };
+      });
 
-    loadAircrafts();
-    setInterval(loadAircrafts, 5000);
+      const socket = new WebSocket("ws://localhost:8000/ws");
+      socket.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (data.type === 'positionUpdate') {
+          const id = data.aircraftId;
+          const lat = data.lat;
+          const lon = data.lon;
+
+          if (aircraftMarkers[id]) {
+            aircraftMarkers[id].setLatLng([lat, lon]);
+          }
+
+          if (selectedAircraft === id) {
+            if (!aircraftTrackPoints[id]) aircraftTrackPoints[id] = [];
+            aircraftTrackPoints[id].push({ lat: lat, lon: lon });
+
+            const latlngs = aircraftTrackPoints[id].map(p => [p.lat, p.lon]);
+            if (aircraftTracks[id]) {
+              aircraftTracks[id].setLatLngs(latlngs);
+            } else {
+              aircraftTracks[id] = L.polyline(latlngs, { color: 'blue' }).addTo(map);
+            }
+          }
+        }
+      };
+
+      loadAircrafts();
+      setInterval(loadAircrafts, 5000);
+    }
+
+    initMapCenteredOnAirport();
   </script>
 </body>
 </html>

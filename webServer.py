@@ -91,3 +91,22 @@ async def push_position_update(aircraftId: str):
 def connect_aircraft_tracks(reference):
     global externalAircraftTracks
     externalAircraftTracks = reference
+
+def set_map_config(airportParams):
+    global mapConfig
+    mapConfig = {
+        "lat": airportParams.get("AIRPORT_LATITUDE", 48.749957),
+        "lon": airportParams.get("AIRPORT_LONGITUDE", 9.105383),
+        "zoom": airportParams.get("WEB_ZOOM_LEVEL", 12)
+    }
+
+@app.get("/config")
+async def get_config():
+    return {
+        "airport": {
+            "lat": mapConfig["lat"],
+            "lon": mapConfig["lon"]
+        },
+        "mapZoom": mapConfig["zoom"]
+    }
+
