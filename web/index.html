@@ -26,7 +26,9 @@
 
     const aircraftMarkers = {}; //stores aircraft markers
     const aircraftTracks = {};  //stores polylines
+    const aircraftTrackPoints = {}; //stores raw lat/lon points
     let selectedAircraft = null;
+    let selectedTrackRefreshInterval = null;
 
     const blueIcon = L.icon({
       iconUrl: 'https://cdn-icons-png.flaticon.com/512/684/684908.png',
@@ -38,10 +40,9 @@
       iconUrl: 'https://cdn-icons-png.flaticon.com/512/684/684908.png',
       iconSize: [24, 24],
       iconAnchor: [12, 12],
-      className: 'selected-icon' //style hook
+      className: 'selected-icon'
     });
 
-    //style for selected icon (yellow filter)
     const style = document.createElement('style');
     style.innerHTML = `.selected-icon img { filter: hue-rotate(45deg) brightness(1.2); }`;
     document.head.appendChild(style);
@@ -62,24 +63,41 @@
       }
     }
 
+    async function loadAndUpdateTrack(id) {
+      const res = await fetch(`http://localhost:8000/aircrafts/${id}/track`);
+      const track = await res.json();
+      aircraftTrackPoints[id] = track.map(p => ({ lat: p.lat, lon: p.lon }));
+      const cleanTrack = aircraftTrackPoints[id].map(p => [p.lat, p.lon]);
+
+      if (aircraftTracks[id]) {
+        aircraftTracks[id].setLatLngs(cleanTrack);
+      } else {
+        aircraftTracks[id] = L.polyline(cleanTrack, { color: 'blue' }).addTo(map);
+      }
+    }
+
     async function onSelectAircraft(id) {
-      //deselect previous
       if (selectedAircraft && aircraftMarkers[selectedAircraft]) {
         aircraftMarkers[selectedAircraft].setIcon(blueIcon);
         if (aircraftTracks[selectedAircraft]) {
           map.removeLayer(aircraftTracks[selectedAircraft]);
+        }
+        if (selectedTrackRefreshInterval) {
+          clearInterval(selectedTrackRefreshInterval);
+          selectedTrackRefreshInterval = null;
         }
       }
 
       selectedAircraft = id;
       aircraftMarkers[id].setIcon(orangeIcon);
 
-      const res = await fetch(`http://localhost:8000/aircrafts/${id}/track`);
-      const track = await res.json();
-      const latlngs = track.map(p => [p.lat, p.lon]);
+      await loadAndUpdateTrack(id);
 
-      const polyline = L.polyline(latlngs, { color: 'blue' }).addTo(map);
-      aircraftTracks[id] = polyline;
+      selectedTrackRefreshInterval = setInterval(() => {
+        if (selectedAircraft) {
+          loadAndUpdateTrack(selectedAircraft);
+        }
+      }, 30000); // refresh every 30 seconds
     }
 
     map.on('click', () => {
@@ -91,12 +109,41 @@
           aircraftMarkers[selectedAircraft].setIcon(blueIcon);
         }
         selectedAircraft = null;
+        if (selectedTrackRefreshInterval) {
+          clearInterval(selectedTrackRefreshInterval);
+          selectedTrackRefreshInterval = null;
+        }
       }
     });
 
-    //load initial data and setup update loop
+    const socket = new WebSocket("ws://localhost:8000/ws");
+    socket.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      if (data.type === 'positionUpdate') {
+        const id = data.aircraftId;
+        const lat = data.lat;
+        const lon = data.lon;
+
+        if (aircraftMarkers[id]) {
+          aircraftMarkers[id].setLatLng([lat, lon]);
+        }
+
+        if (selectedAircraft === id) {
+          if (!aircraftTrackPoints[id]) aircraftTrackPoints[id] = [];
+          aircraftTrackPoints[id].push({ lat: lat, lon: lon });
+
+          const latlngs = aircraftTrackPoints[id].map(p => [p.lat, p.lon]);
+          if (aircraftTracks[id]) {
+            aircraftTracks[id].setLatLngs(latlngs);
+          } else {
+            aircraftTracks[id] = L.polyline(latlngs, { color: 'blue' }).addTo(map);
+          }
+        }
+      }
+    };
+
     loadAircrafts();
-    setInterval(loadAircrafts, 5000); //refresh every 5s
+    setInterval(loadAircrafts, 5000);
   </script>
 </body>
 </html>
