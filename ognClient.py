@@ -275,49 +275,50 @@ class OgnClient:
         '''
         The computed state of the aircraft can toggle between different states.
         In order to have a robust classification of the aircrafts state the "stableState" variable is used.
-        The current state of the aircraft has to fullfill certian requirements
+        The current state of the aircraft has to fulfill certain requirements
         to be considered as the current stable state of the aircraft.
         '''
 
-        flgStableStateChanged = False #flag is set to True if the stable state of the aircraft is changed during debouncing
-        now = self.time.getSystemTime() #get the current valid time
-        aircraft = self.aircraftTracks[aircraftId] #get the data from the aircraft
+        flgStableStateChanged = False  #flag is set to True if the stable state of the aircraft is changed during debouncing
+        now = self.time.getSystemTime()  #get the current valid time
+        aircraft = self.aircraftTracks[aircraftId]  #get the data from the aircraft
 
-        currentStableState = aircraft.get("stableState", "unknown") #get the currently set stable state of the aircraft
-        prevStableState = aircraft.get("prevStableState", "unknown") #get the previosly set stable state of the aircraft
-        prevPrevStableState = aircraft.get("prevPrevStableState", "unknown") #get the previosly previosly set stable state of the aircraft
-        pendingStateState = aircraft.get("pendingState", {}).get("state", "unknown") #get the currently debouncing state
-        pendingStateTimestamp = aircraft.get("pendingState", {}).get("timestamp", now) #get the time since the currently debouncing state first occured
+        currentStableState = aircraft.get("stableState", "unknown")  #get the currently set stable state of the aircraft
+        prevStableState = aircraft.get("prevStableState", "unknown")  #get the previously set stable state of the aircraft
+        prevPrevStableState = aircraft.get("prevPrevStableState", "unknown")  #get the previously previously set stable state of the aircraft
+        pendingStateState = aircraft.get("pendingState", {}).get("state", "unknown")  #get the currently debouncing state
+        pendingStateTimestamp = aircraft.get("pendingState", {}).get("timestamp", now)  #get the time since the currently debouncing state first occurred
 
-        aircraft["state"] = newState #set the new state
+        aircraft["state"] = newState  #set the new state
+        debounceTime = timedelta(seconds=self.stateEstimationParameters["DEBOUNCE_TIME"])
 
         #debounce the new aircraft state
         if newState == currentStableState:
             #the currently stable state is the same as the new computed state => no change needed, no debouncing needed
-            
             #prepare variables for the return dictionary
             newStableState = currentStableState
             newPrevStableState = prevStableState
             newPrevPrevStableState = prevPrevStableState
-            newPendingState = {"state": pendingStateState,
-                               "timestamp": pendingStateTimestamp}
+            newPendingState = {"state": newState, "timestamp": now}
+            aircraft["pendingState"] = newPendingState
+
         else:
-            #the currently stable state is not the same as the new cumputed state => debouncing needed
+            #the currently stable state is not the same as the new computed state => debouncing needed
+
             if newState == pendingStateState:
-                #the new state already occured and is currently in the debouncing logic
-                if now - pendingStateTimestamp >= timedelta(seconds=self.stateEstimationParameters["DEBOUNCE_TIME"]):
+                #the new state already occurred and is currently in the debouncing logic
+                if now - pendingStateTimestamp >= debounceTime:
                     #the new state was present long enough to be considered stable => change all state variables
-                    newStableState = newState #change the new stable state to the new and debounced state
-                    newPrevStableState = currentStableState #set the previos stable state variable accordingly
-                    newPrevPrevStableState = prevStableState #set the previos previos stable state to the previos stable state
-                    newPendingState = {"state": pendingStateState,
-                                       "timestamp": pendingStateTimestamp} #the information here will not be changed
-                    
-                    aircraft["stableState"] = newStableState #write to aircraft
-                    aircraft["prevStableState"] = newPrevStableState #write to aircraft
-                    aircraft["pendingState"] = newPendingState #write to aircraft
-                    aircraft["prevPrevStableState"] = newPrevPrevStableState #write to aircraft
-                    flgStableStateChanged = True #set flag
+                    newStableState = newState  #change the new stable state to the new and debounced state
+                    newPrevStableState = currentStableState  #set the previous stable state variable accordingly
+                    newPrevPrevStableState = prevStableState  #set the previous previous stable state to the previous stable state
+                    newPendingState = {"state": pendingStateState, "timestamp": pendingStateTimestamp}  #retain original timestamp
+
+                    aircraft["stableState"] = newStableState  #write to aircraft
+                    aircraft["prevStableState"] = newPrevStableState  #write to aircraft
+                    aircraft["prevPrevStableState"] = newPrevPrevStableState  #write to aircraft
+                    aircraft["pendingState"] = newPendingState  #write to aircraft
+                    flgStableStateChanged = True  #set flag
 
                     if newStableState == 'airborne':
                         aircraft["airborneSince"] = now
@@ -326,21 +327,19 @@ class OgnClient:
                         aircraft["airborneSince"] = None
 
                 else:
-                    #the new state already occured but not long enough => wait for future data points
-                    #prepare variables for the return dictionary
-                    newStableState = currentStableState 
+                    #state is still pending, but debounce time not fulfilled
+                    newStableState = currentStableState
                     newPrevStableState = prevStableState
                     newPrevPrevStableState = prevPrevStableState
-                    newPendingState = {"state": pendingStateState,
-                                    "timestamp": pendingStateTimestamp}
+                    newPendingState = {"state": pendingStateState, "timestamp": pendingStateTimestamp}
+                    #pendingState remains unchanged in aircraft
+
             else:
-                #the new state is currently not in the debouncing logic => start debouncing process
-                #prepare variables for the return dictionary
+                #new state is not the current pending state => start new debounce
                 newStableState = currentStableState
                 newPrevStableState = prevStableState
                 newPrevPrevStableState = prevPrevStableState
-                newPendingState = {"state": newState,
-                                   "timestamp": now} #here the new state and its time is stored for debouncing with the next data point
+                newPendingState = {"state": newState, "timestamp": now}
                 aircraft["pendingState"] = newPendingState
 
         #create return dictionary
@@ -352,7 +351,7 @@ class OgnClient:
         newStatesDict["pendingState"] = newPendingState
 
         return flgStableStateChanged, newStatesDict
-    
+   
     def detectFlightEvent(self, aircraftId, stateChanged = True):
         aircraft = self.aircraftTracks[aircraftId] #get the corresponding aircraft
         track = aircraft["track"] #get its data
