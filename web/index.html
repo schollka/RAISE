@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>RAISE Live Map</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    #map { height: 100vh; }
+    .aircraft-label {
+      background: white;
+      padding: 2px 4px;
+      border-radius: 4px;
+      font-size: 11px;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const map = L.map('map').setView([48.7, 9.2], 9);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 18
+    }).addTo(map);
+
+    const aircraftMarkers = {}; //stores aircraft markers
+    const aircraftTracks = {};  //stores polylines
+    let selectedAircraft = null;
+
+    const blueIcon = L.icon({
+      iconUrl: 'https://cdn-icons-png.flaticon.com/512/684/684908.png',
+      iconSize: [24, 24],
+      iconAnchor: [12, 12]
+    });
+
+    const orangeIcon = L.icon({
+      iconUrl: 'https://cdn-icons-png.flaticon.com/512/684/684908.png',
+      iconSize: [24, 24],
+      iconAnchor: [12, 12],
+      className: 'selected-icon' //style hook
+    });
+
+    //style for selected icon (yellow filter)
+    const style = document.createElement('style');
+    style.innerHTML = `.selected-icon img { filter: hue-rotate(45deg) brightness(1.2); }`;
+    document.head.appendChild(style);
+
+    async function loadAircrafts() {
+      const res = await fetch('http://localhost:8000/aircrafts');
+      const aircrafts = await res.json();
+
+      for (const ac of aircrafts) {
+        if (!aircraftMarkers[ac.id]) {
+          const marker = L.marker([ac.lat, ac.lon], { icon: blueIcon });
+          marker.addTo(map).bindTooltip(ac.id, { permanent: true, className: 'aircraft-label', direction: 'top' });
+          marker.on('click', () => onSelectAircraft(ac.id));
+          aircraftMarkers[ac.id] = marker;
+        } else {
+          aircraftMarkers[ac.id].setLatLng([ac.lat, ac.lon]);
+        }
+      }
+    }
+
+    async function onSelectAircraft(id) {
+      //deselect previous
+      if (selectedAircraft && aircraftMarkers[selectedAircraft]) {
+        aircraftMarkers[selectedAircraft].setIcon(blueIcon);
+        if (aircraftTracks[selectedAircraft]) {
+          map.removeLayer(aircraftTracks[selectedAircraft]);
+        }
+      }
+
+      selectedAircraft = id;
+      aircraftMarkers[id].setIcon(orangeIcon);
+
+      const res = await fetch(`http://localhost:8000/aircrafts/${id}/track`);
+      const track = await res.json();
+      const latlngs = track.map(p => [p.lat, p.lon]);
+
+      const polyline = L.polyline(latlngs, { color: 'blue' }).addTo(map);
+      aircraftTracks[id] = polyline;
+    }
+
+    map.on('click', () => {
+      if (selectedAircraft) {
+        if (aircraftTracks[selectedAircraft]) {
+          map.removeLayer(aircraftTracks[selectedAircraft]);
+        }
+        if (aircraftMarkers[selectedAircraft]) {
+          aircraftMarkers[selectedAircraft].setIcon(blueIcon);
+        }
+        selectedAircraft = null;
+      }
+    });
+
+    //load initial data and setup update loop
+    loadAircrafts();
+    setInterval(loadAircrafts, 5000); //refresh every 5s
+  </script>
+</body>
+</html>
