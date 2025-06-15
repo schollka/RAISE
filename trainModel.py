@@ -1,15 +1,36 @@
+print("start")
+
 import numpy as np
 from sklearn.model_selection import train_test_split
 import tensorflow as tf
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, Dense, Dropout
+from keras.models import Sequential
+from keras.layers import LSTM, Dense, Dropout
+from keras.saving import save_model
 from sklearn.metrics import classification_report, confusion_matrix
 import matplotlib.pyplot as plt
 import seaborn as sns
+import os
+import yaml
 
-# === 1. Daten laden ===
-X = np.load("X.npy")  # ggf. Pfad anpassen
-y = np.load("y.npy")
+print("Import fertig")
+
+sourceCodeDir = os.path.dirname(os.path.abspath(__file__)) #get the directory of the source code
+parameterFile = os.path.join(sourceCodeDir, "parameters.yaml") #build the absolute file path of the expected parameter file
+
+#Load parameters
+with open(parameterFile, "r") as file: #load parameters from file, contains either custom values or the copied default values
+    allParams = yaml.safe_load(file)
+
+databaseParameters = allParams["databaseParameters"] #get the DB parameters
+machineLearningParameters = allParams["machineLearningParameters"] #get the ML parameters
+
+outputDir = os.path.dirname(os.path.abspath(databaseParameters["DATABASE_PATH"]))
+
+print("parameters geladen")
+
+# === X und y laden ===
+X = np.load(os.path.join(outputDir, "X.npy"))
+y = np.load(os.path.join(outputDir, "y.npy"))
 
 print(f"Daten geladen: X = {X.shape}, y = {y.shape}")
 
@@ -48,8 +69,8 @@ history = model.fit(
 )
 
 # === 5. Modell speichern ===
-model.save("landingClassifier.h5")
-print("Modell gespeichert als landingClassifier.h5")
+save_model(model, "landingClassifier.keras")
+print("Modell gespeichert")
 
 # === 6. Evaluation ===
 val_loss, val_acc = model.evaluate(X_val, y_val)
