@@ -11,6 +11,7 @@ import os
 import shutil
 import random
 import numpy as np
+from webServer import connect_aircraft_tracks
 
 ####################################################
 ################# OGN Client #######################
@@ -102,7 +103,7 @@ class OgnClient:
             self.model = load_model(self.machineLearningParameters["MODEL_PATH"]) #load the ML model from the specified path
         else:
             self.model = None
-
+        
         #initialize aircraft tracks dictionary
         self.aircraftTracks = defaultdict(lambda: {
             "track": deque(maxlen=self.systemParameters["DEQUE_LENGHT"]), #deque to store all data points
@@ -127,7 +128,12 @@ class OgnClient:
 
             #signal states
             "receptionState": "normal" #state of the signal reception
-        })
+        }
+        
+        #webserver
+        connect_aircraft_tracks(self.aircraftTracks)  #connect RAISE data to the web server
+
+        )
 
     class TimeManager:
         '''
