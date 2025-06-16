@@ -21,7 +21,22 @@
   <script>
     let map;
     const SERVER = location.hostname;
-    const API_PORT = 8000;  // <== Stelle hier deinen Port ein
+    const API_PORT = 8000;
+
+    const callsignCache = {};
+
+    async function getCallsign(id) {
+      if (callsignCache[id]) return callsignCache[id];
+      try {
+        const res = await fetch(`http://${SERVER}:${API_PORT}/callsign/${id}`);
+        const data = await res.json();
+        const callsign = data.callsign || id;
+        callsignCache[id] = callsign;
+        return callsign;
+      } catch (e) {
+        return id;  // fallback
+      }
+    }
 
     async function initMapCenteredOnAirport() {
       const res = await fetch(`http://${SERVER}:${API_PORT}/config`);
@@ -66,13 +81,19 @@
       const aircrafts = await res.json();
 
       for (const ac of aircrafts) {
+        const callsign = await getCallsign(ac.id);
         if (!aircraftMarkers[ac.id]) {
           const marker = L.marker([ac.lat, ac.lon], { icon: blueIcon });
-          marker.addTo(map).bindTooltip(ac.id, { permanent: true, className: 'aircraft-label', direction: 'top' });
+          marker.bindTooltip(callsign, { permanent: true, className: 'aircraft-label', direction: 'top' });
+          marker.addTo(map);
           marker.on('click', () => onSelectAircraft(ac.id));
           aircraftMarkers[ac.id] = marker;
         } else {
           aircraftMarkers[ac.id].setLatLng([ac.lat, ac.lon]);
+          const tooltip = aircraftMarkers[ac.id].getTooltip();
+          if (tooltip && tooltip._content !== callsign) {
+            aircraftMarkers[ac.id].setTooltipContent(callsign);
+          }
         }
       }
     }

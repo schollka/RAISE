@@ -4,6 +4,8 @@ from fastapi.responses import JSONResponse
 from typing import Dict, List
 import asyncio
 
+from callsignDBLookUp import DDBLookup  # korrigierter Import
+
 app = FastAPI()
 
 #enable CORS so that frontend JavaScript can access the API
@@ -14,6 +16,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+#Instanz der DDBLookup-Klasse, lädt automatisch alle 12h neu
+ddb = DDBLookup()
 
 #global variable to hold the aircraftTracks reference from RAISE main code
 externalAircraftTracks = None
@@ -55,6 +60,11 @@ async def get_track(aircraft_id: str):
             track.append({"lat": point["lat"], "lon": point["lon"]})
 
     return JSONResponse(track)
+
+#REST endpoint: returns the callsign for an aircraft, or "XXXXX" if tracking not allowed
+@app.get("/callsign/{aircraft_id}")
+async def get_callsign(aircraft_id: str):
+    return {"aircraft": aircraft_id, "callsign": ddb.getCallsign(aircraft_id)}
 
 #WebSocket endpoint: accepts and stores connection for real-time updates
 @app.websocket("/ws")
@@ -109,4 +119,3 @@ async def get_config():
         },
         "mapZoom": mapConfig["zoom"]
     }
-
