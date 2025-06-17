@@ -5,16 +5,100 @@
   <title>RAISE Live Map</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
-    #map { height: 100vh; }
-    .aircraft-label {
-      background: white;
-      padding: 2px 4px;
-      border-radius: 4px;
-      font-size: 11px;
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
     }
+
+    #page-header {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 60px;
+      background-color: #222; /* kein rgba! deckend */
+      color: white;
+      font-family: sans-serif;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 16px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+      z-index: 1000;
+    }
+
+    .header-left {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .header-title {
+      font-size: 20px;
+      font-weight: bold;
+    }
+
+    .version {
+      font-size: 14px;
+      font-weight: normal;
+      margin-left: 6px;
+      opacity: 0.7;
+    }
+
+    .header-subtitle {
+      font-size: 12px;
+      opacity: 0.8;
+      margin-top: 2px;
+    }
+
+    .header-right a {
+      display: flex;
+      align-items: center;
+      height: 24px;
+      width: 24px;
+    }
+
+    .github-icon {
+      width: 24px;
+      height: 24px;
+      filter: invert(100%);
+      opacity: 0.8;
+      transition: opacity 0.2s ease;
+    }
+
+    .github-icon:hover {
+      opacity: 1;
+    }
+
+    #map {
+      position: absolute;
+      top: 60px;
+      left: 0;
+      right: 0;
+      bottom: 0;
+    }
+
+
+
+
+
   </style>
 </head>
 <body>
+  <header id="page-header">
+    <div class="header-left">
+      <div class="header-title">RAISE <span class="version">v1.2.3</span></div>
+      <div class="header-subtitle">Runway Approach Identification for Silent Entries</div>
+    </div>
+    <div class="header-right">
+      <a href="https://github.com/username/repo" target="_blank" title="View on GitHub">
+        <img src="https://cdn.jsdelivr.net/npm/simple-icons@v11/icons/github.svg" alt="GitHub" class="github-icon">
+      </a>
+    </div>
+  </header>
+
+
+
   <div id="map"></div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -45,11 +129,12 @@
       const airportLon = config.airport.lon;
       const defaultZoom = config.mapZoom || 12;
 
-      map = L.map('map').setView([airportLat, airportLon], defaultZoom);
+      map = L.map('map', { zoomControl: false }).setView([airportLat, airportLon], defaultZoom);
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 18,
         attribution: 'Map data from © <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>'
       }).addTo(map);
+      L.control.zoom({ position: 'bottomright' }).addTo(map);
 
       startApplication();
     }
