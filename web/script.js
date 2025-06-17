@@ -31,8 +31,17 @@ async function initMapCenteredOnAirport() {
   }).addTo(map);
   L.control.zoom({ position: 'bottomright' }).addTo(map);
 
+  // Standortmarker für den Flughafen
+  const airportIcon = L.icon({
+    iconUrl: 'assets/location_marker.svg',
+    iconSize: [32, 32],
+    iconAnchor: [16, 32]
+  });
+  L.marker([airportLat, airportLon], { icon: airportIcon }).addTo(map);
+
   startApplication();
 }
+
 
 const aircraftMarkers = {};
 const aircraftTracks = {};
