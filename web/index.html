@@ -47,7 +47,8 @@
 
       map = L.map('map').setView([airportLat, airportLon], defaultZoom);
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 18
+        maxZoom: 18,
+        attribution: 'Map data from © <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>'
       }).addTo(map);
 
       startApplication();
@@ -127,6 +128,11 @@
       aircraftMarkers[id].setIcon(orangeIcon);
 
       await loadAndUpdateTrack(id);
+
+      // ensure track is shown again if it was removed before
+      if (aircraftTracks[id] && !map.hasLayer(aircraftTracks[id])) {
+        aircraftTracks[id].addTo(map);
+      }
 
       selectedTrackRefreshInterval = setInterval(() => {
         if (selectedAircraft) {
