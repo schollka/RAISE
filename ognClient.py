@@ -105,7 +105,8 @@ class OgnClient:
         self.host = self.systemParameters["HOST"] #define the host adress of the ogn-decode server
         self.port = self.systemParameters["PORT"] #define the port of the ogn-decode TCP server
         self.time = self.TimeManager() #initialize system time
-        self.databaseService = DatabaseService(dbParameters=self.databaseParameters) #initilize database service
+        if self.databaseParameters["ENABLE_DATABASE"]:
+            self.databaseService = DatabaseService(dbParameters=self.databaseParameters) #initilize database service
         if self.machineLearningParameters["ENABLE_MODEL"]:
             from keras.models import load_model
             self.model = load_model(self.machineLearningParameters["MODEL_PATH"]) #load the ML model from the specified path
@@ -593,8 +594,9 @@ class OgnClient:
 
                     if recentPoints:
                         if len(recentPoints) >= self.databaseParameters["MINIMUM_NUMBER_DATAPOINTS"]:
-                            #store data in database if enough points are available
-                            self.databaseService.saveTrack(trackDeque=recentPoints, aircraftId=aircraftId, category="departure")
+                            #store data in database if enough points are available and database is enabled
+                            if self.databaseParameters["ENABLE_DATABASE"]:
+                                self.databaseService.saveTrack(trackDeque=recentPoints, aircraftId=aircraftId, category="departure")
         
             # write in-flight data
             if aircraft.get("stableState") != "airborne":
@@ -654,8 +656,9 @@ class OgnClient:
 
         if recentPoints:
             if len(recentPoints) >= self.databaseParameters["MINIMUM_NUMBER_DATAPOINTS"]:
-            #store data in database if enough points are available
-                self.databaseService.saveTrack(trackDeque=recentPoints, aircraftId=aircraftId, category=category)
+                #store data in database if enough points are available and database is enabled
+                if self.databaseParameters["ENABLE_DATABASE"]:
+                    self.databaseService.saveTrack(trackDeque=recentPoints, aircraftId=aircraftId, category=category)
 
     def processMessageLine(self, line):
         #used when the system runs in synchrone mode and recieves data from ogn-decode
