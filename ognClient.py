@@ -13,7 +13,7 @@ import os
 import shutil
 import random
 import numpy as np
-from webServer import connect_aircraft_tracks, push_position_update, set_map_config
+from webServer import connect_aircraft_tracks, push_position_update, set_map_config, connect_config
 import asyncio
 import threading
 import uvicorn
@@ -96,6 +96,7 @@ class OgnClient:
         self.signalReceptionParameters = allParams["signalReceptionParameters"] #signal reception state estimation parameters
         self.databaseParameters = allParams["databaseParameters"] #parameters for the database
         self.machineLearningParameters = allParams["machineLearningParameters"] #ML specific parameters
+        self.webServerParameters = allParams["webServerParameters"] #parameters regarding the web data server and web page
 
         ####################################################
         ################# initialize system ################
@@ -141,6 +142,7 @@ class OgnClient:
         def start_web_server():
             uvicorn.run("webServer:app", host="0.0.0.0", port=8000, reload=False)
 
+        connect_config(self.webServerParameters)
         set_map_config(self.airportParameters) #set the parameters for the map
         threading.Thread(target=start_web_server, daemon=True).start() #start webserver
         connect_aircraft_tracks(self.aircraftTracks)  #connect RAISE data to the web server

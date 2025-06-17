@@ -56,3 +56,8 @@ machineLearningParameters:
   SEQUENCE_LENGTH: 60                 #number of points in the rolling time window, SEQUENCE_TIME_WINDOW * frequencyRecievedMessages [-]
   MIN_NUM_POINTS_SEQUENCE: 50         #minimum number of points in the time window used for ML landing detection [-]
   FEATURES: ["altitude", "groundSpeed", "climbRate", "track", "turnRate"] #features from the data set used for the model prediction
+
+#web server parameters
+webServerParameters:
+  LOOK_UP_ID_TO_CALLSIGN: True        #the recieved aircraft ID is looked up in the glidernet database and the corresponding callsign is displayed (https://ddb.glidernet.org/download/) [boolean]
+  ID_DB_REFRESH_INTERVALL: 43200      #refresh rate after how many seconds the ID/callsign DB is reloaded, the license specifies that the DB shall not be older then 24h [s]

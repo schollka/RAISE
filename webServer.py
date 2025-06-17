@@ -20,6 +20,10 @@ app.add_middleware(
 #Instanz der DDBLookup-Klasse, lädt automatisch alle 12h neu
 ddb = DDBLookup()
 
+# ✅ konfigurierte Option aus YAML (manuell ersetzen)
+def is_callsign_translation_enabled():
+    return globalConfig.get("LOOK_UP_ID_TO_CALLSIGN", False) 
+
 #global variable to hold the aircraftTracks reference from RAISE main code
 externalAircraftTracks = None
 
@@ -64,7 +68,11 @@ async def get_track(aircraft_id: str):
 #REST endpoint: returns the callsign for an aircraft, or "XXXXX" if tracking not allowed
 @app.get("/callsign/{aircraft_id}")
 async def get_callsign(aircraft_id: str):
-    return {"aircraft": aircraft_id, "callsign": ddb.getCallsign(aircraft_id)}
+    if is_callsign_translation_enabled():
+        callsign = ddb.getCallsign(aircraft_id)
+    else:
+        callsign = aircraft_id
+    return {"aircraft": aircraft_id, "callsign": callsign}
 
 #WebSocket endpoint: accepts and stores connection for real-time updates
 @app.websocket("/ws")
@@ -119,3 +127,7 @@ async def get_config():
         },
         "mapZoom": mapConfig["zoom"]
     }
+
+def connect_config(configDict):
+    global globalConfig
+    globalConfig = configDict
