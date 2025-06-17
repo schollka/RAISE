@@ -49,22 +49,30 @@ const aircraftTrackPoints = {};
 let selectedAircraft = null;
 let selectedTrackRefreshInterval = null;
 
+// Blauer Standardmarker für Flugzeuge
 const blueIcon = L.icon({
-  iconUrl: 'https://cdn-icons-png.flaticon.com/512/684/684908.png',
-  iconSize: [24, 24],
-  iconAnchor: [12, 12]
+  iconUrl: 'assets/aircraft.svg',
+  iconSize: [32, 32],
+  iconAnchor: [16, 16]
 });
 
+// Orange hervorgehobener Marker für ausgewähltes Flugzeug
 const orangeIcon = L.icon({
-  iconUrl: 'https://cdn-icons-png.flaticon.com/512/684/684908.png',
-  iconSize: [24, 24],
-  iconAnchor: [12, 12],
+  iconUrl: 'assets/aircraft.svg',
+  iconSize: [32, 32],
+  iconAnchor: [16, 16],
   className: 'selected-icon'
 });
 
+// Stil für hervorgehobenes Flugzeug – Farbverschiebung & Helligkeit
 const style = document.createElement('style');
-style.innerHTML = `.selected-icon img { filter: hue-rotate(45deg) brightness(1.2); }`;
+style.innerHTML = `
+  .selected-icon img {
+    filter: hue-rotate(45deg) brightness(1.4);
+  }
+`;
 document.head.appendChild(style);
+
 
 async function loadAircrafts() {
   const res = await fetch(`http://${SERVER}:${API_PORT}/aircrafts`);
