@@ -17,9 +17,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-#Instanz der DDBLookup-Klasse, lädt automatisch alle 12h neu
-ddb = DDBLookup()
-
 # ✅ konfigurierte Option aus YAML (manuell ersetzen)
 def is_callsign_translation_enabled():
     return globalConfig.get("LOOK_UP_ID_TO_CALLSIGN", False) 
@@ -129,5 +126,8 @@ async def get_config():
     }
 
 def connect_config(configDict):
-    global globalConfig
+    global globalConfig, ddb
     globalConfig = configDict
+
+    refreshSeconds = globalConfig.get("ID_DB_REFRESH_INTERVALL", 43200)  # fallback: 12h
+    ddb = DDBLookup(refreshSeconds)

@@ -8,11 +8,11 @@ DDB_URL = "https://ddb.glidernet.org/download/"
 RELOAD_INTERVAL_SECONDS = 43200  # 12h
 
 class DDBLookup:
-    def __init__(self):
+    def __init__(self, refreshIntervall):
         self.lookup = {}
         self.lastLoaded = None
         self._loadDdb()
-        self._scheduleReload()
+        self._scheduleReload(refreshIntervall)
 
     def _loadDdb(self):
         try:
@@ -50,8 +50,8 @@ class DDBLookup:
         except Exception as e:
             print(f"[DDB] Failed to load: {e}")
 
-    def _scheduleReload(self):
-        threading.Timer(RELOAD_INTERVAL_SECONDS, self._reload).start()
+    def _scheduleReload(self, refreshIntervall):
+        threading.Timer(refreshIntervall, self._reload).start()
 
     def _reload(self):
         self._loadDdb()
