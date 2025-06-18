@@ -42,6 +42,7 @@ async def get_all_aircrafts():
             "id": aircraftId,
             "lat": lastPoint.get("lat"),
             "lon": lastPoint.get("lon"),
+            "heading": lastPoint.get("track",0),
             "flightState": entry.get("stableState", "unknown"),
             "receptionState": entry.get("receptionState", "normal")
         })
@@ -92,6 +93,7 @@ async def push_position_update(aircraftId: str):
         "aircraftId": aircraftId,
         "lat": lastPoint.get("lat"),
         "lon": lastPoint.get("lon"),
+        "heading": lastPoint.get("track",0),
         "flightState": externalAircraftTracks[aircraftId].get("stableState", "unknown"),
         "receptionState": externalAircraftTracks[aircraftId].get("receptionState", "normal")
     }

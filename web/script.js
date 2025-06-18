@@ -3,6 +3,11 @@ const SERVER = location.hostname;
 const API_PORT = 8000;
 
 const callsignCache = {};
+const aircraftMarkers = {};
+const aircraftTracks = {};
+const aircraftTrackPoints = {};
+let selectedAircraft = null;
+let selectedTrackRefreshInterval = null;
 
 async function getCallsign(id) {
   if (callsignCache[id]) return callsignCache[id];
@@ -13,9 +18,32 @@ async function getCallsign(id) {
     callsignCache[id] = callsign;
     return callsign;
   } catch (e) {
-    return id;  // fallback
+    return id; // fallback
   }
 }
+
+function createRotatedIconHtml(imageUrl, heading) {
+  return `<img src="${imageUrl}" style="width:32px; height:32px; transform: rotate(${heading}deg); transform-origin: center;">`;
+}
+
+function updateMarkerVisual(marker, imageUrl, heading) {
+  const img = marker.getElement()?.querySelector('img');
+
+  if (img) {
+    img.src = imageUrl;
+    img.style.transform = `rotate(${heading}deg)`;
+  } else {
+    // Marker-Element noch nicht verfügbar → setIcon neu setzen
+    const icon = L.divIcon({
+      className: '',
+      html: `<img src="${imageUrl}" style="width:32px; height:32px; transform: rotate(${heading}deg); transform-origin: center;">`,
+      iconSize: [32, 32],
+      iconAnchor: [16, 16]
+    });
+    marker.setIcon(icon);
+  }
+}
+
 
 async function initMapCenteredOnAirport() {
   const res = await fetch(`http://${SERVER}:${API_PORT}/config`);
@@ -41,44 +69,36 @@ async function initMapCenteredOnAirport() {
   startApplication();
 }
 
-const aircraftMarkers = {};
-const aircraftTracks = {};
-const aircraftTrackPoints = {};
-let selectedAircraft = null;
-let selectedTrackRefreshInterval = null;
-
-const airborneIcon = L.icon({
-  iconUrl: 'assets/aircraft.svg',
-  iconSize: [32, 32],
-  iconAnchor: [16, 16]
-});
-
-const landingIcon = L.icon({
-  iconUrl: 'assets/aircraft_landing.svg',
-  iconSize: [32, 32],
-  iconAnchor: [16, 16]
-});
-
 async function loadAircrafts() {
   const res = await fetch(`http://${SERVER}:${API_PORT}/aircrafts`);
   const aircrafts = await res.json();
 
   for (const ac of aircrafts) {
     const callsign = await getCallsign(ac.id);
-    const icon = (ac.flightState === 'landing') ? landingIcon : airborneIcon;
+    const heading = ac.heading || 0;
+    const imageUrl = (ac.flightState === 'landing') ? 'assets/aircraft_landing.svg' : 'assets/aircraft.svg';
 
     if (!aircraftMarkers[ac.id]) {
+      const icon = L.divIcon({
+        className: '',
+        html: createRotatedIconHtml(imageUrl, heading),
+        iconSize: [32, 32],
+        iconAnchor: [16, 16]
+      });
+
       const marker = L.marker([ac.lat, ac.lon], { icon: icon });
       marker.bindTooltip(callsign, { permanent: true, className: 'aircraft-label', direction: 'top' });
-      marker.addTo(map);
       marker.on('click', () => onSelectAircraft(ac.id));
+      marker.addTo(map);
       aircraftMarkers[ac.id] = marker;
     } else {
-      aircraftMarkers[ac.id].setLatLng([ac.lat, ac.lon]);
-      aircraftMarkers[ac.id].setIcon(icon);
-      const tooltip = aircraftMarkers[ac.id].getTooltip();
+      const marker = aircraftMarkers[ac.id];
+      marker.setLatLng([ac.lat, ac.lon]);
+      updateMarkerVisual(marker, imageUrl, heading);
+
+      const tooltip = marker.getTooltip();
       if (tooltip && tooltip._content !== callsign) {
-        aircraftMarkers[ac.id].setTooltipContent(callsign);
+        marker.setTooltipContent(callsign);
       }
     }
   }
@@ -142,14 +162,12 @@ function startApplication() {
       const id = data.aircraftId;
       const lat = data.lat;
       const lon = data.lon;
+      const heading = data.heading || 0;
+      const imageUrl = (data.flightState === 'landing') ? 'assets/aircraft_landing.svg' : 'assets/aircraft.svg';
 
       if (aircraftMarkers[id]) {
         aircraftMarkers[id].setLatLng([lat, lon]);
-
-        if (data.flightState) {
-          const icon = (data.flightState === 'landing') ? landingIcon : airborneIcon;
-          aircraftMarkers[id].setIcon(icon);
-        }
+        updateMarkerVisual(aircraftMarkers[id], imageUrl, heading);
       }
 
       if (selectedAircraft === id) {
