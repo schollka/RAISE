@@ -58,10 +58,9 @@ const blueIcon = L.icon({
 
 // Orange hervorgehobener Marker für ausgewähltes Flugzeug
 const orangeIcon = L.icon({
-  iconUrl: 'assets/aircraft.svg',
-  iconSize: [32, 32],
-  iconAnchor: [16, 16],
-  className: 'selected-icon'
+  iconUrl: 'assets/aircraft_selected.svg',
+  iconSize: [48, 48],
+  iconAnchor: [24, 24]
 });
 
 // Stil für hervorgehobenes Flugzeug – Farbverschiebung & Helligkeit
