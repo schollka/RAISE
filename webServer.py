@@ -42,10 +42,10 @@ async def get_all_aircrafts():
             "id": aircraftId,
             "lat": lastPoint.get("lat"),
             "lon": lastPoint.get("lon"),
-            "alt": lastPoint.get("alt"),
-            "flightState": entry.get("flightState", "unknown"),
+            "flightState": entry.get("stableState", "unknown"),
             "receptionState": entry.get("receptionState", "normal")
         })
+        a = result
     return JSONResponse(result)
 
 #REST endpoint: returns the full track (deque) of a specific aircraft
@@ -92,8 +92,7 @@ async def push_position_update(aircraftId: str):
         "aircraftId": aircraftId,
         "lat": lastPoint.get("lat"),
         "lon": lastPoint.get("lon"),
-        "alt": lastPoint.get("alt"),
-        "flightState": externalAircraftTracks[aircraftId].get("flightState", "unknown"),
+        "flightState": externalAircraftTracks[aircraftId].get("stableState", "unknown"),
         "receptionState": externalAircraftTracks[aircraftId].get("receptionState", "normal")
     }
     for ws in websocketClients:

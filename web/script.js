@@ -31,7 +31,6 @@ async function initMapCenteredOnAirport() {
   }).addTo(map);
   L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-  // Standortmarker für den Flughafen
   const airportIcon = L.icon({
     iconUrl: 'assets/location_marker.svg',
     iconSize: [32, 32],
@@ -42,36 +41,23 @@ async function initMapCenteredOnAirport() {
   startApplication();
 }
 
-
 const aircraftMarkers = {};
 const aircraftTracks = {};
 const aircraftTrackPoints = {};
 let selectedAircraft = null;
 let selectedTrackRefreshInterval = null;
 
-// Blauer Standardmarker für Flugzeuge
-const blueIcon = L.icon({
+const airborneIcon = L.icon({
   iconUrl: 'assets/aircraft.svg',
   iconSize: [32, 32],
   iconAnchor: [16, 16]
 });
 
-// Orange hervorgehobener Marker für ausgewähltes Flugzeug
-const orangeIcon = L.icon({
-  iconUrl: 'assets/aircraft_selected.svg',
-  iconSize: [48, 48],
-  iconAnchor: [24, 24]
+const landingIcon = L.icon({
+  iconUrl: 'assets/aircraft_landing.svg',
+  iconSize: [32, 32],
+  iconAnchor: [16, 16]
 });
-
-// Stil für hervorgehobenes Flugzeug – Farbverschiebung & Helligkeit
-const style = document.createElement('style');
-style.innerHTML = `
-  .selected-icon img {
-    filter: hue-rotate(45deg) brightness(1.4);
-  }
-`;
-document.head.appendChild(style);
-
 
 async function loadAircrafts() {
   const res = await fetch(`http://${SERVER}:${API_PORT}/aircrafts`);
@@ -79,14 +65,17 @@ async function loadAircrafts() {
 
   for (const ac of aircrafts) {
     const callsign = await getCallsign(ac.id);
+    const icon = (ac.flightState === 'landing') ? landingIcon : airborneIcon;
+
     if (!aircraftMarkers[ac.id]) {
-      const marker = L.marker([ac.lat, ac.lon], { icon: blueIcon });
+      const marker = L.marker([ac.lat, ac.lon], { icon: icon });
       marker.bindTooltip(callsign, { permanent: true, className: 'aircraft-label', direction: 'top' });
       marker.addTo(map);
       marker.on('click', () => onSelectAircraft(ac.id));
       aircraftMarkers[ac.id] = marker;
     } else {
       aircraftMarkers[ac.id].setLatLng([ac.lat, ac.lon]);
+      aircraftMarkers[ac.id].setIcon(icon);
       const tooltip = aircraftMarkers[ac.id].getTooltip();
       if (tooltip && tooltip._content !== callsign) {
         aircraftMarkers[ac.id].setTooltipContent(callsign);
@@ -109,23 +98,18 @@ async function loadAndUpdateTrack(id) {
 }
 
 async function onSelectAircraft(id) {
-  if (selectedAircraft && aircraftMarkers[selectedAircraft]) {
-    aircraftMarkers[selectedAircraft].setIcon(blueIcon);
-    if (aircraftTracks[selectedAircraft]) {
-      map.removeLayer(aircraftTracks[selectedAircraft]);
-    }
-    if (selectedTrackRefreshInterval) {
-      clearInterval(selectedTrackRefreshInterval);
-      selectedTrackRefreshInterval = null;
-    }
+  if (selectedAircraft && aircraftTracks[selectedAircraft]) {
+    map.removeLayer(aircraftTracks[selectedAircraft]);
+  }
+
+  if (selectedTrackRefreshInterval) {
+    clearInterval(selectedTrackRefreshInterval);
+    selectedTrackRefreshInterval = null;
   }
 
   selectedAircraft = id;
-  aircraftMarkers[id].setIcon(orangeIcon);
-
   await loadAndUpdateTrack(id);
 
-  // ensure track is shown again if it was removed before
   if (aircraftTracks[id] && !map.hasLayer(aircraftTracks[id])) {
     aircraftTracks[id].addTo(map);
   }
@@ -142,9 +126,6 @@ function startApplication() {
     if (selectedAircraft) {
       if (aircraftTracks[selectedAircraft]) {
         map.removeLayer(aircraftTracks[selectedAircraft]);
-      }
-      if (aircraftMarkers[selectedAircraft]) {
-        aircraftMarkers[selectedAircraft].setIcon(blueIcon);
       }
       selectedAircraft = null;
       if (selectedTrackRefreshInterval) {
@@ -164,6 +145,11 @@ function startApplication() {
 
       if (aircraftMarkers[id]) {
         aircraftMarkers[id].setLatLng([lat, lon]);
+
+        if (data.flightState) {
+          const icon = (data.flightState === 'landing') ? landingIcon : airborneIcon;
+          aircraftMarkers[id].setIcon(icon);
+        }
       }
 
       if (selectedAircraft === id) {

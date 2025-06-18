@@ -28,7 +28,7 @@ airportParameters:
   AIRPORT_ALTITUDE: 266         #altitude of the airport above mean sea level [m]
   AIRPORT_LATITUDE: 49.000913   #latitude of the airport reference position [°]
   AIRPORT_LONGITUDE: 9.083304   #longitude of the airport reference positoin [°]
-  WEB_ZOOM_LEVEL: 13            #zoom level for the web front end map [-]
+  WEB_ZOOM_LEVEL: 14            #zoom level for the web front end map [-]
 
 #parameters used for the aircraft state estimation
 stateEstimationParameters:
