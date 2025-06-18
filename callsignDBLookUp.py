@@ -1,5 +1,4 @@
 import csv
-import io
 import threading
 import requests
 from datetime import datetime
