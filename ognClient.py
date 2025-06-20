@@ -143,16 +143,13 @@ class OgnClient:
         #webserver start up
         def start_web_server():
             uvicorn.run("webServer:app", host="0.0.0.0", port=8000, reload=False)
-        def _startLoop(self):
-            asyncio.set_event_loop(self.loop)
-            self.loop.run_forever()
 
         connect_config(self.webServerParameters)
         set_map_config(self.airportParameters) #set the parameters for the map
         threading.Thread(target=start_web_server, daemon=True).start() #start webserver
         connect_aircraft_tracks(self.aircraftTracks)  #connect RAISE data to the web server
         self.loop = asyncio.new_event_loop() #create asynchrone loop in the background
-        self.loopThread = threading.Thread(target=self._startLoop, daemon=True) 
+        self.loopThread = threading.Thread(target=self.startLoop, daemon=True) 
         self.loopThread.start() #start loop
         
 
@@ -190,6 +187,11 @@ class OgnClient:
 
         def getSystemTime(self):
             return self.time #return the set time
+        
+    def startLoop(self):
+        #start the asyncio envent loop in the background for pushing data to the frontend
+        asyncio.set_event_loop(self.loop)
+        self.loop.run_forever()
 
     '''
     Regex expression for OGN message decode
