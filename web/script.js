@@ -1,6 +1,6 @@
 let map;
 const SERVER = location.hostname;
-const API_PORT = 8000;
+const API_PORT = 8181;
 
 const callsignCache = {};
 const aircraftMarkers = {};

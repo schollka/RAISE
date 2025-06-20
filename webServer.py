@@ -6,7 +6,7 @@ import asyncio
 
 from callsignDBLookUp import DDBLookup  # korrigierter Import
 
-app = FastAPI()
+app = FastAPI(root_path="/api")
 
 #enable CORS so that frontend JavaScript can access the API
 app.add_middleware(

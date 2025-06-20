@@ -142,7 +142,7 @@ class OgnClient:
         
         #webserver start up
         def start_web_server():
-            uvicorn.run("webServer:app", host="0.0.0.0", port=8000, reload=False)
+            uvicorn.run("webServer:app", host="0.0.0.0", port=8181, reload=False)
 
         connect_config(self.webServerParameters)
         set_map_config(self.airportParameters) #set the parameters for the map
