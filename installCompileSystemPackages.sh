@@ -1,8 +1,6 @@
-sudo apt update
 sudo apt install -y \
   build-essential \
   gfortran \
-  python3.10-dev \
   libatlas-base-dev \
   libopenblas-dev \
   liblapack-dev \
