@@ -19,10 +19,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const config = await fetch(`http://${SERVER}:${API_PORT}/config`).then(r => r.json());
   const map = L.map('map', {
-  zoomControl: false
-    }).setView([config.airport.lat, config.airport.lon], config.mapZoom || 12);
+    zoomControl: false
+  }).setView([config.airport.lat, config.airport.lon], config.mapZoom || 12);
 
-    L.control.zoom({ position: 'bottomright' }).addTo(map);
+  L.control.zoom({ position: 'bottomright' }).addTo(map);
 
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 18,
@@ -42,6 +42,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       selectedAircraft = null;
       if (selectedTrackRefreshInterval) clearInterval(selectedTrackRefreshInterval);
       infoBox.style.display = 'none';
+
+      // Entferne Tooltip bei Deselektion
+      const marker = aircraftMarkers[selectedAircraft];
+      if (marker) marker.closeTooltip();
     }
   });
 
@@ -94,8 +98,12 @@ document.addEventListener('DOMContentLoaded', async () => {
           iconSize: [32, 32],
           iconAnchor: [16, 16]
         });
+
         const marker = L.marker([ac.lat, ac.lon], { icon });
-        marker.bindTooltip(callsign, { permanent: true, className: 'aircraft-label', direction: 'top' });
+        marker.on('mouseover', () => marker.bindTooltip(callsign, { className: 'aircraft-label', direction: 'top' }).openTooltip());
+        marker.on('mouseout', () => {
+          if (selectedAircraft !== ac.id) marker.closeTooltip();
+        });
         marker.on('click', () => onSelectAircraft(ac.id));
         marker.addTo(map);
         aircraftMarkers[ac.id] = marker;
@@ -103,8 +111,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         const marker = aircraftMarkers[ac.id];
         marker.setLatLng([ac.lat, ac.lon]);
         updateMarkerVisual(marker, imageUrl, heading);
-        const tooltip = marker.getTooltip();
-        if (tooltip && tooltip._content !== callsign) marker.setTooltipContent(callsign);
       }
     }
   }
@@ -130,6 +136,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         ? Math.round(aircraft.speed * 3.6)
         : '-';
       infoBox.style.display = 'block';
+
+      // Zeige Tooltip dauerhaft für selektiertes Flugzeug
+      const marker = aircraftMarkers[id];
+      if (marker) marker.bindTooltip(callsign, { permanent: true, className: 'aircraft-label', direction: 'top' }).openTooltip();
     }
   }
 
@@ -171,8 +181,8 @@ document.addEventListener('DOMContentLoaded', async () => {
           if (infoBox.style.display === 'block') {
             infoAlt.textContent = data.alt ?? '-';
             infoSpeed.textContent = data.speed != null
-                ? Math.round(data.speed * 3.6)
-                : '-';
+              ? Math.round(data.speed * 3.6)
+              : '-';
           }
         }
       }
