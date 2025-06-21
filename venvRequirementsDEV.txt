@@ -10,6 +10,7 @@ tqdm  # Fortschrittsbalken z. B. beim Training
 uvicorn
 websockets
 fastapi
+requests
 
 # database
 sqlalchemy

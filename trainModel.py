@@ -73,17 +73,9 @@ print("Modell gespeichert")
 
 # === 5a. Konvertierung in TFLite ===
 converter = tf.lite.TFLiteConverter.from_keras_model(model)
-converter.optimizations = [tf.lite.Optimize.DEFAULT]
-
-# LSTM-fähige Einstellungen aktivieren:
-converter.target_spec.supported_ops = [
-    tf.lite.OpsSet.TFLITE_BUILTINS,
-    tf.lite.OpsSet.SELECT_TF_OPS
-]
-converter._experimental_lower_tensor_list_ops = False
-
-converter.inference_input_type = tf.float32
-converter.inference_output_type = tf.float32
+converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS]  # keine SELECT_TF_OPS
+converter.optimizations = [tf.lite.Optimize.DEFAULT]  # optional
+tflite_model = converter.convert()
 
 tfliteModel = converter.convert()
 

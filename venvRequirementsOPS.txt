@@ -6,6 +6,7 @@ tflite-runtime
 uvicorn
 websockets
 fastapi
+requests
 
 # database
 sqlalchemy
