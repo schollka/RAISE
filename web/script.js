@@ -126,7 +126,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       const callsign = await getCallsign(id);
       infoCallsign.textContent = callsign;
       infoAlt.textContent = aircraft.alt ?? '-';
-      infoSpeed.textContent = aircraft.speed ?? '-';
+      infoSpeed.textContent = aircraft.speed != null
+        ? Math.round(aircraft.speed * 3.6)
+        : '-';
       infoBox.style.display = 'block';
     }
   }
@@ -168,7 +170,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
           if (infoBox.style.display === 'block') {
             infoAlt.textContent = data.alt ?? '-';
-            infoSpeed.textContent = data.speed ?? '-';
+            infoSpeed.textContent = data.speed != null
+                ? Math.round(data.speed * 3.6)
+                : '-';
           }
         }
       }
