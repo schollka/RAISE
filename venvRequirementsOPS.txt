@@ -1,9 +1,6 @@
 # machine learning
 numpy<2
 tflite-runtime
-scikit-learn
-matplotlib
-seaborn
 
 # webserver
 uvicorn

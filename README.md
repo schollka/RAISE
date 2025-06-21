@@ -59,8 +59,8 @@ pyhton <3.11 = > 3.10.11
 python3.10 -m venv RAISE 
 source ./RAISEenv/Scripts/activate
 pip install --upgrade pip
-pip install -r venvRequirements.txt
-pip install "numpy<2" 
+pip install --no-build-isolation --no-use-pep517 -r venvRequirementsOPS.txt
+
 
 WIN: python.exe -m pip install --upgrade pip
 
