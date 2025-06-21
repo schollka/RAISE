@@ -1,0 +1,14 @@
+#machine learning
+tflite-runtime
+numpy<2
+scikit-learn
+matplotlib
+seaborn
+
+#webserver
+uvicorn
+asyncio
+
+#other
+pyyaml
+shutil 
