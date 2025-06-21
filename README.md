@@ -2,6 +2,55 @@
 
 TODO
 
+
+# 1. Gruppe setzen: NGINX = www-data
+sudo chown -R pi:www-data /home/pi/RAISE/web
+
+# 2. Verzeichnisrechte: pi darf alles, www-data darf rein
+sudo find /home/pi/RAISE/web -type d -exec chmod 750 {} \;
+
+# 3. Dateirechte: pi darf schreiben, www-data darf lesen
+sudo find /home/pi/RAISE/web -type f -exec chmod 640 {} \;
+
+# 4. NGINX darf den Pfad betreten (aber keine anderen Inhalte sehen)
+sudo chmod o+x /home
+sudo chmod o+x /home/pi
+sudo chmod o+x /home/pi/RAISE
+
+
+
+
+server {
+    listen 80;
+    server_name _;
+
+    root /home/pi/RAISE/web;
+    index index.html;
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:8181;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
+
+
+
+# Link in sites-enabled erstellen (falls nicht schon aktiv)
+sudo ln -s /etc/nginx/sites-available/raise /etc/nginx/sites-enabled/raise
+
+# Konfiguration prüfen und reload
+sudo nginx -t
+sudo systemctl reload nginx
+
+
+
+
 ## License and Data Attribution
 
 ### Map Data – OpenStreetMap
