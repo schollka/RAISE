@@ -1,6 +1,5 @@
 # RAISE – Runway Approach Identification for Silent Entries
-
-TODO
+The RAISE project is a local airspace montoring tool, developed for use at airports with unmonitored airspace. 
 
 
 # 1. Gruppe setzen: NGINX = www-data
