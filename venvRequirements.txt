@@ -1,0 +1,14 @@
+#machine learning
+tensorflow<2.11
+numpy<2
+scikit-learn
+matplotlib
+seaborn
+
+#webserver
+uvicorn
+asyncio
+
+#other
+pyyaml
+shutil 

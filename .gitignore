@@ -4,6 +4,7 @@ startVenv.ps1
 *.pkl
 *.db*
 parameters.yaml
+tfenv310/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
