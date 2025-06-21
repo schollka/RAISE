@@ -1,8 +1,5 @@
-# force binary install for numpy
---only-binary=numpy
-
 # machine learning
-numpy<2
+https://www.piwheels.org/simple/numpy/numpy-1.26.4-cp310-cp310-linux_aarch64.whl #numpy version less then 2 via pywheels
 tflite-runtime
 scikit-learn
 matplotlib
