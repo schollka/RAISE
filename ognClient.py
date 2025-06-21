@@ -109,8 +109,20 @@ class OgnClient:
         if self.databaseParameters["ENABLE_DATABASE"]:
             self.databaseService = DatabaseService(dbParameters=self.databaseParameters) #initilize database service
         if self.machineLearningParameters["ENABLE_MODEL"]:
-            from keras.models import load_model
-            self.model = load_model(self.machineLearningParameters["MODEL_PATH"]) #load the ML model from the specified path
+            modelPath = self.machineLearningParameters["MODEL_PATH"]
+            if modelPath.endswith(".tflite"):
+                #use a tensorflow lite model for a low performance machine like a raspberry pi
+                from tflite_runtime.interpreter import Interpreter
+                self.interpreter = Interpreter(model_path=modelPath)
+                self.interpreter.allocate_tensors()
+                self.inputDetails = self.interpreter.get_input_details()
+                self.outputDetails = self.interpreter.get_output_details()
+                self.isTFLite = True
+            else:
+                #use a keras model for a high performance machine
+                from keras.models import load_model
+                self.model = load_model(modelPath)
+                self.isTFLite = False
         else:
             self.model = None
         
@@ -442,6 +454,14 @@ class OgnClient:
             aircraft["detectedTouchDown"] = eventDict["detectedTouchDown"]
             lastDataPoint["flightEvent"] = eventDict
 
+    def predictTFLite(self, inputArray: np.ndarray) -> float:
+        inputArray = inputArray.astype(np.float32)  #TFLite expects float32
+        self.interpreter.set_tensor(self.inputDetails[0]['index'], inputArray)
+        self.interpreter.invoke()
+        outputData = self.interpreter.get_tensor(self.outputDetails[0]['index'])
+        return outputData[0][0]  #sigmoid return
+
+
     def predictLanding(self, track):
         #extract points inside the time window
         now = self.time.getSystemTime()
@@ -470,7 +490,14 @@ class OgnClient:
             featureArray = featureArray[idxs]
 
         inputArray = np.expand_dims(featureArray, axis=0)  #shape: (1, sequenceLength, numFeatures)
-        prob = self.model.predict(inputArray, verbose=0)[0][0] #execute model and get probability of landing
+
+        if self.isTFLite:
+            #predict using a tensorflow lite model on low performance hardware
+            prob = self.predictTFLite(inputArray) #execute model and get probability of landing
+        else:
+            #predict using a full tensorflow keras model on high performance hardware
+            prob = self.model.predict(inputArray, verbose=0)[0][0] #execute model and get probability of landing
+
 
         return prob > self.machineLearningParameters["REALTIME_PROBABILITY_THRESHOLD"] #return flag
 

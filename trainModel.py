@@ -72,6 +72,28 @@ history = model.fit(
 save_model(model, "landingClassifier.keras")
 print("Modell gespeichert")
 
+# === 5a. Konvertierung in TFLite ===
+converter = tf.lite.TFLiteConverter.from_keras_model(model)
+converter.optimizations = [tf.lite.Optimize.DEFAULT]
+
+# LSTM-fähige Einstellungen aktivieren:
+converter.target_spec.supported_ops = [
+    tf.lite.OpsSet.TFLITE_BUILTINS,
+    tf.lite.OpsSet.SELECT_TF_OPS
+]
+converter._experimental_lower_tensor_list_ops = False
+
+converter.inference_input_type = tf.float32
+converter.inference_output_type = tf.float32
+
+tfliteModel = converter.convert()
+
+with open("landingClassifier_quantized.tflite", "wb") as f:
+    f.write(tfliteModel)
+
+print("TFLite-Modell mit LSTM-Support erfolgreich gespeichert.")
+
+
 # === 6. Evaluation ===
 val_loss, val_acc = model.evaluate(X_val, y_val)
 print(f"Validierungsgenauigkeit: {val_acc:.4f}")
