@@ -5,7 +5,6 @@ from sklearn.model_selection import train_test_split
 import tensorflow as tf
 from keras.models import Sequential
 from keras.layers import LSTM, Dense, Dropout
-from keras.saving import save_model
 from sklearn.metrics import classification_report, confusion_matrix
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -69,7 +68,7 @@ history = model.fit(
 )
 
 # === 5. Modell speichern ===
-save_model(model, "landingClassifier.keras")
+model.save("landingClassifier.keras")
 print("Modell gespeichert")
 
 # === 5a. Konvertierung in TFLite ===

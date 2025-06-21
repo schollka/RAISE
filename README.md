@@ -60,7 +60,7 @@ python3.10 -m venv RAISE
 source ./RAISEenv/Scripts/activate
 pip install --upgrade pip
 pip install -r venvRequirements.txt
-
+pip install "numpy<2" 
 
 WIN: python.exe -m pip install --upgrade pip
 
