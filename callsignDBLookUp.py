@@ -15,7 +15,7 @@ class DDBLookup:
 
     def _loadDdb(self):
         try:
-            response = requests.get(DDB_URL, timeout=10)
+            response = requests.get(DDB_URL, timeout=30)
             response.raise_for_status()
 
             for delimiter in [',', ';']:

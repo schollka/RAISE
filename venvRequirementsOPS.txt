@@ -7,6 +7,7 @@ seaborn
 
 # webserver
 uvicorn
+websockets
 fastapi
 
 # database

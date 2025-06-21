@@ -8,6 +8,7 @@ tqdm  # Fortschrittsbalken z. B. beim Training
 
 # webserver
 uvicorn
+websockets
 fastapi
 
 # database
