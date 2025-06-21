@@ -1,14 +1,22 @@
-#machine learning
+# machine learning
 tensorflow<2.11
 numpy<2
 scikit-learn
 matplotlib
 seaborn
+tqdm  # Fortschrittsbalken z. B. beim Training
 
-#webserver
+# webserver
 uvicorn
-asyncio
+fastapi
 
-#other
+# database
+sqlalchemy
+# sqlite3 wird mit Python geliefert (stdlib), kein pip-Eintrag nötig
+
+# data handling & visualization
+pandas
 pyyaml
-shutil 
+geopandas
+contextily
+shapely

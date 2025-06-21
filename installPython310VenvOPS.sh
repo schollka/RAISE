@@ -20,14 +20,3 @@ make -j4
 sudo make altinstall
 
 echo "Python 3.10.9 installed."
-
-echo "Step 4: Create virtual environment 'RAISE' in the current directory"
-cd "$OLDPWD"
-python3.10 -m venv RAISE
-
-echo "Step 5: Install Python packages from venvRequirements.txt"
-source RAISE/bin/activate
-pip install --upgrade pip
-pip install -r venvRequirementsOPS.txt
-
-echo "Setup complete. The 'RAISE' environment is ready."

@@ -1,14 +1,19 @@
-#machine learning
-tflite-runtime
+# force binary install for numpy
+--only-binary=numpy
+
+# machine learning
 numpy<2
+tflite-runtime
 scikit-learn
 matplotlib
 seaborn
 
-#webserver
+# webserver
 uvicorn
-asyncio
+fastapi
 
-#other
+# database
+sqlalchemy
+
+# other
 pyyaml
-shutil 

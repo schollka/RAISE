@@ -56,11 +56,13 @@ sudo apt install python3.10 python3.10-venv python3.10-dev
 
 # VENV
 pyhton <3.11 = > 3.10.11
-py -3.10 -m venv RAISEenv
+python3.10 -m venv RAISE 
 source ./RAISEenv/Scripts/activate
 pip install --upgrade pip
 pip install -r venvRequirements.txt
 
+
+WIN: python.exe -m pip install --upgrade pip
 
 
 ## License and Data Attribution
