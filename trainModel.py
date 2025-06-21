@@ -4,7 +4,7 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 import tensorflow as tf
 from keras.models import Sequential
-from keras.layers import LSTM, Dense, Dropout
+from keras.layers import Conv1D, GlobalMaxPooling1D, Dense, Dropout  # Conv statt GRU
 from sklearn.metrics import classification_report, confusion_matrix
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -42,11 +42,13 @@ print(f"Trainingsdaten: {X_train.shape}, Validierungsdaten: {X_val.shape}")
 
 # === 3. Modell definieren ===
 model = Sequential([
-    LSTM(64, input_shape=(X.shape[1], X.shape[2]), return_sequences=False),
+    Conv1D(filters=64, kernel_size=3, activation='relu', input_shape=(X.shape[1], X.shape[2])),
+    GlobalMaxPooling1D(),
     Dropout(0.3),
     Dense(32, activation='relu'),
     Dense(1, activation='sigmoid')  # Binary classification
 ])
+
 
 model.compile(
     loss='binary_crossentropy',
@@ -71,19 +73,20 @@ history = model.fit(
 model.save("landingClassifier.keras")
 print("Modell gespeichert")
 
-# === 5a. Konvertierung in TFLite ===
+# === 5a. Konvertierung in TFLite === (Pi-kompatibel ohne SELECT_TF_OPS)
 converter = tf.lite.TFLiteConverter.from_keras_model(model)
-converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS]  # keine SELECT_TF_OPS
-converter.optimizations = [tf.lite.Optimize.DEFAULT]  # optional
-tflite_model = converter.convert()
+converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS]
+converter._experimental_lower_tensor_list_ops = False
+converter.experimental_enable_resource_variables = True
+converter.inference_input_type = tf.float32
+converter.inference_output_type = tf.float32
 
 tfliteModel = converter.convert()
 
-with open("landingClassifier_quantized.tflite", "wb") as f:
+with open("landingClassifier_lite_compatible.tflite", "wb") as f:
     f.write(tfliteModel)
 
-print("TFLite-Modell mit LSTM-Support erfolgreich gespeichert.")
-
+print("TFLite-kompatibles Modell erfolgreich gespeichert.")
 
 # === 6. Evaluation ===
 val_loss, val_acc = model.evaluate(X_val, y_val)
