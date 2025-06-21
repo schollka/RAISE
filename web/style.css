@@ -1,7 +1,8 @@
 body {
   margin: 0;
   padding: 0;
-  overflow: hidden;
+  overflow: visible;
+  font-family: sans-serif;
 }
 
 #page-header {
@@ -12,12 +13,11 @@ body {
   height: 60px;
   background-color: #222;
   color: white;
-  font-family: sans-serif;
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 0 16px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
   z-index: 1000;
 }
 
@@ -65,10 +65,11 @@ body {
 
 #map {
   position: absolute;
-  top: 60px;
+  top: 60px; /* unterhalb des Headers */
   left: 0;
   right: 0;
   bottom: 0;
+  z-index: 0;
 }
 
 .aircraft-label {
@@ -76,4 +77,28 @@ body {
   padding: 2px 4px;
   border-radius: 4px;
   font-size: 11px;
+}
+
+/* Info-Box für Flugzeugdetails */
+#aircraft-info {
+  position: fixed;
+  top: 70px;
+  right: 10px;
+  width: 240px;
+  padding: 10px;
+  background-color: white;
+  border: 2px solid #333;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+  display: none;
+  z-index: 9999;
+}
+
+#aircraft-info h3 {
+  margin: 0 0 8px 0;
+  font-size: 16px;
+}
+
+#aircraft-info p {
+  margin: 4px 0;
+  font-size: 14px;
 }
