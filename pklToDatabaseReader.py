@@ -10,10 +10,11 @@ file2 = 'DDA286_2025-04-27.pkl'
 with open(file2, 'rb') as f:
     flightData = pickle.load(f)  # erwartet z.B. ein Dict mit aircraftId als Keys
 
-for data in flightData:
-    client.processMessageDict(data)
-    client.removeOldTracks()
-    client.airborneDataWriteDetection()
+#while True:
+    for data in flightData:
+        client.processMessageDict(data)
+        client.removeOldTracks()
+        client.airborneDataWriteDetection()
 
 aircraftId, aircraftData = next(iter(client.aircraftTracks.items()))
 track = aircraftData["track"]
