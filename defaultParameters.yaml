@@ -5,7 +5,7 @@ systemParameters:
   DEQUE_LENGHT: 100000                  #maximum number of data points in the buffer (RAM) per aircraft [-]
   STORAGE_DURATION_SECONDS: 600         #maximum duration a data point is retained in buffer (RAM) [s]
   MAXIMUM_MESSAGES_IN_INPUT_BUFFER: 10  #maximum number of messages that are held in the input buffer for processing [-]
-  REALTIME_MODE: False                  #run the system in realtime mode (deployed) or in asynchrone mode (testing) [bool]
+  REALTIME_MODE: True                  #run the system in realtime mode (deployed) or in asynchrone mode (testing) [bool]
   STORAGE_DURATION_ARRIVAL: 300         #maximum time window of track data that is stored into the database when the touch down is detected, use n * 60s with n > 1 and being a natural number [s]
   PROBABILITY_OF_DEPATURE_STORAGE: 0.4  #probability of storing the depature track data into the database after the deparure was detected [-]
   STORAGE_DURATION_PRE_DEPARTURE: 60    #maximum time window of track data that is stored in the database before the take off was detected [s]
@@ -46,7 +46,7 @@ signalReceptionParameters:
 
 #machine learning parameters
 machineLearningParameters:
-  ENABLE_MODEL: True                  #if set to true, the provided model is used for the landing prediction. False disables any predictions [boolean]
+  ENABLE_MODEL: False                  #if set to true, the provided model is used for the landing prediction. False disables any predictions [boolean]
   MODEL_PATH: "C:/Users/Kai/OneDrive - bwedu/Uni/SS 25/09_EffizienzProgrammieren/04_Model/03_landingClassifier.keras" #path to the trained model used for predicting landings at this airport
   REALTIME_PROBABILITY_THRESHOLD: 0.6 #the model has to compute a probability for landing higher then this treshold, to change the state to landing [-]
   MAX_DISTANCE_TO_AIRPORT_FOR_PREDICTION: 3000 #maximum distance from the aircraft to the airport to trigger the model prediction for landing detection [m]
