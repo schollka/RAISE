@@ -4,7 +4,7 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 import tensorflow as tf
 from keras.models import Sequential
-from keras.layers import Conv1D, GlobalMaxPooling1D, Dense, Dropout  # Conv statt GRU
+from keras.layers import Conv1D, GlobalAveragePooling1D, Dense, Dropout
 from sklearn.metrics import classification_report, confusion_matrix
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -13,15 +13,15 @@ import yaml
 
 print("Import fertig")
 
-sourceCodeDir = os.path.dirname(os.path.abspath(__file__)) #get the directory of the source code
-parameterFile = os.path.join(sourceCodeDir, "parameters.yaml") #build the absolute file path of the expected parameter file
+sourceCodeDir = os.path.dirname(os.path.abspath(__file__))
+parameterFile = os.path.join(sourceCodeDir, "parameters.yaml")
 
-#Load parameters
-with open(parameterFile, "r") as file: #load parameters from file, contains either custom values or the copied default values
+# Load parameters
+with open(parameterFile, "r") as file:
     allParams = yaml.safe_load(file)
 
-databaseParameters = allParams["databaseParameters"] #get the DB parameters
-machineLearningParameters = allParams["machineLearningParameters"] #get the ML parameters
+databaseParameters = allParams["databaseParameters"]
+machineLearningParameters = allParams["machineLearningParameters"]
 
 outputDir = os.path.dirname(os.path.abspath(databaseParameters["DATABASE_PATH"]))
 
@@ -43,12 +43,13 @@ print(f"Trainingsdaten: {X_train.shape}, Validierungsdaten: {X_val.shape}")
 # === 3. Modell definieren ===
 model = Sequential([
     Conv1D(filters=64, kernel_size=3, activation='relu', input_shape=(X.shape[1], X.shape[2])),
-    GlobalMaxPooling1D(),
     Dropout(0.3),
+    Conv1D(filters=32, kernel_size=3, activation='relu'),
+    Dropout(0.2),
+    GlobalAveragePooling1D(),
     Dense(32, activation='relu'),
-    Dense(1, activation='sigmoid')  # Binary classification
+    Dense(1, activation='sigmoid')
 ])
-
 
 model.compile(
     loss='binary_crossentropy',
@@ -59,6 +60,7 @@ model.compile(
 model.summary()
 
 # === 4. Training ===
+class_weights = {0: 1.0, 1: float(len(y) - sum(y)) / float(sum(y))}
 earlyStop = tf.keras.callbacks.EarlyStopping(patience=3, restore_best_weights=True)
 
 history = model.fit(
@@ -66,18 +68,17 @@ history = model.fit(
     validation_data=(X_val, y_val),
     epochs=20,
     batch_size=32,
-    callbacks=[earlyStop]
+    callbacks=[earlyStop],
+    class_weight=class_weights
 )
 
 # === 5. Modell speichern ===
 model.save("landingClassifier.keras")
 print("Modell gespeichert")
 
-# === 5a. Konvertierung in TFLite === (Pi-kompatibel ohne SELECT_TF_OPS)
+# === 5a. Konvertierung in TFLite (nur BUILTIN Ops) ===
 converter = tf.lite.TFLiteConverter.from_keras_model(model)
 converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS]
-converter._experimental_lower_tensor_list_ops = False
-converter.experimental_enable_resource_variables = True
 converter.inference_input_type = tf.float32
 converter.inference_output_type = tf.float32
 
