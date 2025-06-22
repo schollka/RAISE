@@ -1,4 +1,5 @@
 # RAISE – Runway Approach Identification for Silent Entries
+
 RAISE – Runway Approach Identification for Silent Entries is an open-source project aimed at improving airspace monitoring at uncontrolled airfields. It processes real-time position data from aircraft equipped with FLARM devices and displays this data on a web-based map interface.
 
 The system is designed to autonomously record approach patterns and use them to train a machine learning model. This model identifies aircraft in the vicinity of the airfield that are likely about to land. Aircraft currently on approach are visually highlighted to draw attention.
@@ -21,8 +22,8 @@ It operates in two distinct phases:
 2. **Machine Learning Phase**  
    - After enough data is collected, it must be manually labeled on a more powerful machine with a graphical interface.  
    - A machine learning model is then trained on this labeled data.  
-   - The resulting model is deployed back to the Raspberry Pi to enable real-time landing prediction.
-   - The machine leatning phase is the desired long-time operation mode
+   - The resulting model is deployed back to the Raspberry Pi to enable real-time landing prediction.  
+   - The machine learning phase is the desired long-time operation mode.
 
 ### Hardware Requirements
 
@@ -38,7 +39,7 @@ It operates in two distinct phases:
 - **Training Machine**  
   - A standard PC or laptop with:
     - A graphical user interface (for manual data labeling)  
-    - A Python environment with the required ML libraries, see installation guide below  
+    - A Python environment with the required ML libraries, see installation guide below
 
 ## Installation on Raspberry Pi
 
@@ -60,7 +61,7 @@ To install RAISE on your Raspberry Pi, follow these steps:
    cd raise
    ```
 
-> 📌 Replace `YOUR_USERNAME` with your GitHub username or organization name.
+> Replace `YOUR_USERNAME` with your GitHub username or organization name.
 
 ---
 
@@ -113,6 +114,7 @@ python3.10 -m venv RAISE
 ```
 
 Then activate the virtual environment and install the required packages:
+
 ```bash
 source ./RAISE/bin/activate
 pip install --upgrade pip
@@ -124,8 +126,6 @@ This will:
 - Activate the Python 3.10 virtual environment
 - Upgrade `pip` to the latest version
 - Install all required Python packages listed in `venvRequirementsOPS.txt`, including `tflite-runtime` (compatible with Python 3.10 and NumPy < 2.0)
-
-> ⚠️ Make sure the `RAISEenv` virtual environment was created using Python 3.10. If it doesn't exist yet, see the setup instructions or troubleshooting section.
 
 ---
 
@@ -148,7 +148,7 @@ Before running RAISE, you need to configure the project-specific settings.
    nano parameters.yaml
    ```
 
-#### 🔧 Adjusting the OGN socket port
+#### Adjusting the OGN socket port
 
 In the section `systemParameters` of `parameters.yaml`, you may need to change the `PORT` value to match your local `ogn-decode` service.
 
@@ -158,18 +158,18 @@ By default, this is usually port `50001`. You can check if this port is active b
 netcat localhost 50001
 ```
 
-> 📦 If `netcat` is not installed on your system, you can install it using:
+If `netcat` is not installed on your system:
+
 ```bash
 sudo apt install netcat
 ```
 
-- If the terminal connects, you should see the output of the `ogn-decode` service and port 50001 is open and active.  
-- If you get an error like *connection refused*, your setup may be using a different port.
+If the terminal connects, you should see the output of the `ogn-decode` service and port 50001 is open and active.  
+If you get an error like *connection refused*, your setup may be using a different port.
 
-Update the `PORT` field accordingly in your `parameters.yaml` if your system does not use port 50001.
+Update the `PORT` field accordingly in your `parameters.yaml`.
 
-
-#### 🗂️ Setting the database path
+#### Setting the database path
 
 In the `databaseParameters` section of your `parameters.yaml` file, you need to specify the `DATABASE_PATH`. This defines where RAISE will store the collected flight data.
 
@@ -187,11 +187,9 @@ In the `databaseParameters` section of your `parameters.yaml` file, you need to 
 
 Make sure that the directory exists and is writable by the user running RAISE. The `.db` file will be created automatically when data collection starts.
 
-#### 📍 Setting the airport reference location
+#### Setting the airport reference location
 
 In the `airportParameters` section of your `parameters.yaml` file, you must define the location of your airfield.
-
-The following fields need to be set:
 
 ```yaml
 airportParameters:
@@ -200,27 +198,21 @@ airportParameters:
   AIRPORT_LONGITUDE: <longitude_in_decimal_degrees>
 ```
 
-- **AIRPORT_ALTITUDE**: Elevation above sea level in meters  
-- **AIRPORT_LATITUDE** and **AIRPORT_LONGITUDE**: Coordinates of the reference point
+Use the midpoint of your main runway as the reference location.  
+You can find the required coordinates using online maps or aviation databases.
 
-> 📌 **Tip**: Use the **midpoint of your main runway** as the reference location. This provides the most accurate frame of reference for approach pattern detection and landing classification.
-
-You can find the required coordinates using online maps (e.g., Google Maps) or aviation databases.
-
-#### ⚙️ Other parameters
+#### Other parameters
 
 All other parameters in `parameters.yaml` are documented with inline comments inside the file.  
 In most cases, you will not need to modify them for standard operation.
 
-Only adjust advanced settings if you understand their purpose or have a specific use case.
-
 ---
 
-## First Test Run
+### 5. First Test Run
 
 Once you've completed the setup and configuration, you can test whether RAISE starts correctly.
 
-### ✅ Steps to run RAISE
+#### Steps to run RAISE
 
 1. **Navigate to the RAISE source code directory**:
    ```bash
@@ -229,7 +221,7 @@ Once you've completed the setup and configuration, you can test whether RAISE st
 
 2. **Activate the virtual environment**:
    ```bash
-   source ./RAISEenv/Scripts/activate
+   source ./RAISE/bin/activate
    ```
 
 3. **Run the main script**:
@@ -237,37 +229,31 @@ Once you've completed the setup and configuration, you can test whether RAISE st
    python ognClient.py
    ```
 
-If the script starts without any errors, your environment is correctly installed and all required parameters are set properly.
-
 You should see log output indicating that RAISE is connected to the `ogn-decode` service and ready to receive aircraft data.
 
 ---
 
-### ❌ Troubleshooting
+#### Troubleshooting
 
 If any errors occur during startup:
 
 - Double-check that all required Python packages are installed.
 - Ensure your `parameters.yaml` file contains valid paths and values.
 - Make sure the `ogn-decode` socket is running and accessible on the specified port.
-- Use tools like `netcat` to verify socket connectivity.
-- You can also use ChatGPT or other AI tools to help resolve errors based on the terminal output.
+- Use `netcat` to verify socket connectivity.
 
 ---
 
-#### ⚙️ Setting up the `ognclient` systemd service
+### 6. Setting up the `ognclient` systemd service
 
 To ensure the RAISE OGN client starts automatically on boot, set up a `systemd` service that launches the script using its virtual environment.
 
 1. **Create the service file**  
-   Open a new file with root privileges:
-
    ```bash
    sudo nano /etc/systemd/system/ognclient.service
    ```
 
-2. **Paste the following content** into the file:  
-   Replace paths if your project structure is different.
+2. **Paste the following content**:
 
    ```ini
    [Unit]
@@ -289,104 +275,55 @@ To ensure the RAISE OGN client starts automatically on boot, set up a `systemd` 
    WantedBy=multi-user.target
    ```
 
-3. **Reload systemd and enable the service**
+3. **Enable and start the service**
 
    ```bash
    sudo systemctl daemon-reload
    sudo systemctl enable ognclient.service
-   ```
-
-4. **Start the service**
-
-   ```bash
    sudo systemctl start ognclient.service
    ```
 
-5. **Check the service status**
-
-   ```bash
-   sudo systemctl status ognclient.service
-   ```
-
-   You should see that the service is `active (running)` if everything worked correctly.
-
-6. **View live logs from the service**
+4. **Check logs**
 
    ```bash
    journalctl -u ognclient.service -f
    ```
 
-   Press `Ctrl+C` to stop viewing logs.
-
-7. **(Optional) Restart, stop, or disable the service**
-
-   ```bash
-   sudo systemctl restart ognclient.service
-   sudo systemctl stop ognclient.service
-   sudo systemctl disable ognclient.service
-   ```
-
-
-#### 🌐 Installing and Preparing the NGINX Web Server
-
-The RAISE frontend is served via NGINX and communicates with the backend through a local proxy. Follow the steps below to install NGINX, set the correct file permissions, and configure it for the RAISE web interface.
-
 ---
 
-1. **Install NGINX (if not already installed)**  
-   On Debian-based systems:
+### 7. Installing and Preparing the NGINX Web Server
+
+1. **Install NGINX**
 
    ```bash
    sudo apt update
    sudo apt install nginx
    ```
 
-   Check if NGINX is running:
-
-   ```bash
-   systemctl status nginx
-   ```
-
-   If it’s not active, start it:
-
-   ```bash
-   sudo systemctl start nginx
-   ```
-
-2. **Enable NGINX to start on boot**
+2. **Enable it on boot**
 
    ```bash
    sudo systemctl enable nginx
    ```
 
-3. **Set correct file permissions for NGINX access**  
-   These steps allow NGINX (user `www-data`) to access the web content without exposing other parts of the system:
+3. **Set file permissions**
 
    ```bash
-   # 1. Set group to www-data for all web content
    sudo chown -R pi:www-data /home/pi/RAISE/web
-
-   # 2. Directories: full access for pi, read/execute for www-data
    sudo find /home/pi/RAISE/web -type d -exec chmod 750 {} \;
-
-   # 3. Files: writable by pi, readable by www-data
    sudo find /home/pi/RAISE/web -type f -exec chmod 640 {} \;
-
-   # 4. Allow traversal through parent directories
    sudo chmod o+x /home
    sudo chmod o+x /home/pi
    sudo chmod o+x /home/pi/RAISE
    ```
 
-4. **Create NGINX site configuration**
-
-   Create a file:
+4. **Configure NGINX**
 
    ```bash
    sudo nano /etc/nginx/sites-available/raise
    ```
 
-   Paste the following configuration:
+   Content:
 
    ```nginx
    server {
@@ -409,28 +346,20 @@ The RAISE frontend is served via NGINX and communicates with the backend through
    }
    ```
 
-5. **Activate the site and reload NGINX**
+5. **Activate site and reload**
 
    ```bash
-   # Create symlink to enable the site
    sudo ln -s /etc/nginx/sites-available/raise /etc/nginx/sites-enabled/raise
-
-   # Test configuration
    sudo nginx -t
-
-   # Reload NGINX
    sudo systemctl reload nginx
    ```
 
 ---
 
-NGINX is now set up to serve the RAISE frontend from `/home/pi/RAISE/web`, and forwards `/api/` requests to the backend running on port `8181`.
+NGINX now serves the RAISE frontend from `/home/pi/RAISE/web` and forwards `/api/` requests to the backend on port `8181`.
 
 
-
-
-
-
+# API BACKEND PORT 8181
 
 # 1. Gruppe setzen: NGINX = www-data
 sudo chown -R pi:www-data /home/pi/RAISE/web
