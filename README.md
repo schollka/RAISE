@@ -1,6 +1,9 @@
 # RAISE – Runway Approach Identification for Silent Entries
-The RAISE project is a local airspace montoring tool, developed for use at airports with unmonitored airspace. 
+RAISE – Runway Approach Identification for Silent Entries is an open-source project aimed at improving airspace monitoring at uncontrolled airfields. It processes real-time position data from aircraft equipped with FLARM devices and displays this data on a web-based map interface.
 
+The system is designed to autonomously record approach patterns and use them to train a machine learning model. This model identifies aircraft in the vicinity of the airfield that are likely about to land. Aircraft currently on approach are visually highlighted to draw attention.
+
+RAISE aims to improve safety by giving ground personnel a reliable tool to monitor aircraft activity near the airfield, with a special focus on identifying and highlighting landing approaches. In cases where radio communication is disrupted, RAISE acts as a fallback system to ensure that situational awareness on the ground is maintained.
 
 # 1. Gruppe setzen: NGINX = www-data
 sudo chown -R pi:www-data /home/pi/RAISE/web
