@@ -41,7 +41,7 @@ It operates in two distinct phases:
     - A graphical user interface (for manual data labeling)  
     - A Python environment with the required ML libraries, see installation guide below
 
-## Installation on Raspberry Pi
+## Installation on Raspberry Pi (OGN Reciever)
 
 To install RAISE on your Raspberry Pi, follow these steps:
 
@@ -57,11 +57,11 @@ To install RAISE on your Raspberry Pi, follow these steps:
 
 2. **Clone the RAISE repository from GitHub**
    ```bash
-   git clone https://github.com/YOUR_USERNAME/raise.git
-   cd raise
+   git clone https://github.com/YOUR_USERNAME/RAISE.git
+   cd RAISE
    ```
 
-> Replace `YOUR_USERNAME` with your GitHub username or organization name.
+> TODO: Replace `YOUR_USERNAME` with your GitHub username or organization name.
 
 ---
 
@@ -135,7 +135,7 @@ Before running RAISE, you need to configure the project-specific settings.
 
 1. **Make sure you are in the RAISE source code directory**:
    ```bash
-   cd /home/pi/raise
+   cd /home/pi/RAISE
    ```
 
 2. **Copy the default parameter file** to create your own editable version:
@@ -246,7 +246,7 @@ If any errors occur during startup:
 
 ### 6. Setting up the `ognclient` systemd service
 
-To ensure the RAISE OGN client starts automatically on boot, set up a `systemd` service that launches the script using its virtual environment.
+To ensure the RAISE OGN Client starts automatically on boot, set up a `systemd` service that launches the script using its virtual environment.
 
 1. **Create the service file**  
    ```bash
@@ -257,7 +257,7 @@ To ensure the RAISE OGN client starts automatically on boot, set up a `systemd` 
 
    ```ini
    [Unit]
-   Description=RAISE OGN client autostart
+   Description=RAISE OGN Client autostart
    After=network.target
 
    [Service]
@@ -306,7 +306,8 @@ To ensure the RAISE OGN client starts automatically on boot, set up a `systemd` 
    sudo systemctl enable nginx
    ```
 
-3. **Set file permissions**
+3. **Set file permissions**\
+    You may need to change the paths, if you installed RAISE in a different directory.
 
    ```bash
    sudo chown -R pi:www-data /home/pi/RAISE/web
@@ -323,7 +324,7 @@ To ensure the RAISE OGN client starts automatically on boot, set up a `systemd` 
    sudo nano /etc/nginx/sites-available/raise
    ```
 
-   Content:
+   Copy the settings into the configutation file:
 
    ```nginx
    server {
@@ -354,57 +355,33 @@ To ensure the RAISE OGN client starts automatically on boot, set up a `systemd` 
    sudo systemctl reload nginx
    ```
 
----
+### 8. Accessing RAISE
 
-NGINX now serves the RAISE frontend from `/home/pi/RAISE/web` and forwards `/api/` requests to the backend on port `8181`.
+NGINX now serves the RAISE frontend on port 80 of your device.  
+You can access the interface on the same device by opening the following URL in a browser:
+
+```
+http://localhost:80
+```
+
+However, the usual use case is to access the RAISE frontend from a different device on the airfield, such as a tablet or laptop.
+
+To do this:
+
+1. Ensure both devices are connected to the same local network.
+2. In the browser on the monitoring device, either:
+   - Enter the **IP address** of your Raspberry Pi running RAISE,  
+     e.g., `http://192.168.0.42`
+   - Or enter the **hostname** of the device,  
+     e.g., `http://ogn`
+
+> RAISE is designed to run **entirely within your local airfield network**.  
+> **Do not expose the system to the public internet.**  
+> Access should remain restricted to the internal network for safety and privacy reasons.
+
 
 
 # API BACKEND PORT 8181
-
-# 1. Gruppe setzen: NGINX = www-data
-sudo chown -R pi:www-data /home/pi/RAISE/web
-
-# 2. Verzeichnisrechte: pi darf alles, www-data darf rein
-sudo find /home/pi/RAISE/web -type d -exec chmod 750 {} \;
-
-# 3. Dateirechte: pi darf schreiben, www-data darf lesen
-sudo find /home/pi/RAISE/web -type f -exec chmod 640 {} \;
-
-# 4. NGINX darf den Pfad betreten (aber keine anderen Inhalte sehen)
-sudo chmod o+x /home
-sudo chmod o+x /home/pi
-sudo chmod o+x /home/pi/RAISE
-
-
-
-
-server {
-    listen 80;
-    server_name _;
-
-    root /home/pi/RAISE/web;
-    index index.html;
-
-    location /api/ {
-        proxy_pass http://127.0.0.1:8181;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    }
-
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
-}
-
-
-
-# Link in sites-enabled erstellen (falls nicht schon aktiv)
-sudo ln -s /etc/nginx/sites-available/raise /etc/nginx/sites-enabled/raise
-
-# Konfiguration prüfen und reload
-sudo nginx -t
-sudo systemctl reload nginx
 
 
 #Python 3.10
@@ -423,7 +400,29 @@ pip install --no-build-isolation --no-use-pep517 -r venvRequirementsOPS.txt
 WIN: python.exe -m pip install --upgrade pip
 
 
+## Disclosure
+
+The RAISE system relies entirely on the presence and quality of an OGN receiver and its antenna installation. Depending on the receiver's location, the type and quality of the antenna, and the performance of the RF module, it is possible that data packets from an aircraft are not received, even when the aircraft is in close proximity to the airfield.
+
+RAISE is **not** a certified or commercial airspace monitoring system. It is an open-source academic project that aims to utilize existing infrastructure to provide **additional safety** at small airfields operating in unmonitored airspace, such as gliding fields. The aircraft position data is presented as-is from the decoded data stream. 
+
+Aircraft that are **not equipped with compatible broadcast systems** (e.g. FLARM, ADS-B, etc.) that transmit their position to the local OGN receiver **cannot** be displayed by RAISE.
+
+The project originates from an academic context and offers **no warranty**, and **no guarantee of correctness** or **certified integrity** of the displayed information.
+
+The machine learning-based landing detection depends entirely on the quality and quantity of training data. A model can only predict patterns that it has seen during training. It may:
+
+- Produce **false positives**
+- **Miss landings** that do not match the trained approach pattern
+- Is trained primarily on the **most common local aircraft types** (e.g. gliders)
+
+To ensure meaningful predictions, collect **sufficient approach data** over an extended period. The model will reflect the **most common type of traffic** at your airfield (e.g. gliders). Unusual traffic, such as police or EMS helicopters, may be displayed if their onboard equipment broadcasts to the OGN receiver, but these will **not** be classified as approaching by the machine learning algorithm, due to their different approach pattern.
+
+RAISE is intended to support situational awareness, not to replace certified systems.
+
+
 ## License and Data Attribution
+RAISE is released as open-source software. The full license text can be found in the [LICENSE](./LICENSE) file included in this repository.
 
 ### Map Data – OpenStreetMap
 
@@ -431,8 +430,8 @@ The map tiles and geodata used in this project are provided by [OpenStreetMap](h
 
 - © OpenStreetMap contributors
 - License: [Open Database License (ODbL) v1.0](https://opendatacommons.org/licenses/odbl/)
-- Tile service (default): [tile.openstreetmap.org](https://tile.openstreetmap.org/)
-- Attribution is shown in the web interface in accordance with [OSM's attribution requirements](https://www.openstreetmap.org/copyright).
+- Tile service: [tile.openstreetmap.org](https://tile.openstreetmap.org/)
+- Attribution is shown in the web interface 
 
 If you plan to run this application in a high-traffic or commercial setting, consider hosting your own tile server or using a third-party tile provider to reduce load on the public OpenStreetMap infrastructure.
 
@@ -446,10 +445,6 @@ Callsigns and aircraft metadata are resolved based on the DDB database provided 
 - License: Use permitted for non-commercial purposes; redistribution and usage must comply with the conditions described on [https://ddb.glidernet.org/about.html](https://ddb.glidernet.org/about.html)
 
 Aircraft identifiers in this project are matched using the downloaded CSV files containing FLARM or ICAO hexadecimal IDs with associated metadata (e.g., callsign, aircraft type, competition ID).
-
-### General Notes
-
-This project is intended for local, non-commercial deployment, such as in gliding clubs or airfield operations rooms. It does not provide guaranteed accuracy, and aircraft data is presented as-is from the decoded data stream.
 
 
 
