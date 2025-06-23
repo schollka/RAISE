@@ -84,7 +84,7 @@ converter.inference_output_type = tf.float32
 
 tfliteModel = converter.convert()
 
-with open("landingClassifier_lite_compatible.tflite", "wb") as f:
+with open("landingClassifierLite.tflite", "wb") as f:
     f.write(tfliteModel)
 
 print("TFLite-kompatibles Modell erfolgreich gespeichert.")

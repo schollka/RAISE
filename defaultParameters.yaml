@@ -18,7 +18,7 @@ systemParameters:
 
 databaseParameters:
   ENABLE_DATABASE: True                 #if set to ture, then the arrival, deparure and in flight data is written to the specified database [boolean]
-  DATABASE_PATH: "C:/Users/Kai/OneDrive - bwedu/Uni/SS 25/09_EffizienzProgrammieren/02_Database/02_Database/flightData_testing.db"        #path to the DB that stores all flight data
+  DATABASE_PATH: '/home/pi/RAISE_DB/flightData.db'        #path to the DB that stores all flight data
   PRIVATE_AIRCRAFT_ID: True             #the aircraft identifier is not written to the database if this setting is set to true [boolean]
   PRIVATE_TIMESTAMP: True               #the date and year of the flight is not written to the database if this setting is set to true [boolean]
   MINIMUM_NUMBER_DATAPOINTS: 60         #minimum number of data points for a data set to be written into the database [-]
@@ -47,7 +47,7 @@ signalReceptionParameters:
 #machine learning parameters
 machineLearningParameters:
   ENABLE_MODEL: False                  #if set to true, the provided model is used for the landing prediction. False disables any predictions [boolean]
-  MODEL_PATH: "C:/Users/Kai/OneDrive - bwedu/Uni/SS 25/09_EffizienzProgrammieren/04_Model/03_landingClassifier.keras" #path to the trained model used for predicting landings at this airport
+  MODEL_PATH: '/home/pi/RAISE_DB/landingClassifierLite.tlite' #path to the trained model used for predicting landings at this airport
   REALTIME_PROBABILITY_THRESHOLD: 0.6 #the model has to compute a probability for landing higher then this treshold, to change the state to landing [-]
   MAX_DISTANCE_TO_AIRPORT_FOR_PREDICTION: 3000 #maximum distance from the aircraft to the airport to trigger the model prediction for landing detection [m]
   MAX_ALT_FOR_PREDICTION: 650         #maximum GPS altitude of the aircraft to trigger the model prediction for landing detection [m]
@@ -61,3 +61,4 @@ machineLearningParameters:
 webServerParameters:
   LOOK_UP_ID_TO_CALLSIGN: True        #the recieved aircraft ID is looked up in the glidernet database and the corresponding callsign is displayed (https://ddb.glidernet.org/download/) [boolean]
   ID_DB_REFRESH_INTERVALL: 43200      #refresh rate after how many seconds the ID/callsign DB is reloaded, the license specifies that the DB shall not be older then 24h [s]
+  API_PORT: 8181                      #port number of the API providing the data to the web front end, if changed it must be manually changed in ./web/script.js (API_PORT = 8181) [-]
