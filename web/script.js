@@ -43,7 +43,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (selectedTrackRefreshInterval) clearInterval(selectedTrackRefreshInterval);
       infoBox.style.display = 'none';
 
-      //remove tooltip, deselection
       const marker = aircraftMarkers[selectedAircraft];
       if (marker) marker.closeTooltip();
     }
@@ -89,7 +88,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     for (const ac of aircrafts) {
       const callsign = await getCallsign(ac.id);
       const heading = ac.heading || 0;
-      const imageUrl = ac.flightState === 'landing' ? 'assets/aircraft_landing.svg' : 'assets/aircraft.svg';
+
+      let imageUrl = 'assets/aircraft.svg';
+      if (ac.receptionState === 'aircraftLost') {
+        imageUrl = 'assets/aircraft_lost.svg';
+      } else if (ac.flightState === 'landing') {
+        imageUrl = 'assets/aircraft_landing.svg';
+      }
 
       if (!aircraftMarkers[ac.id]) {
         const icon = L.divIcon({
@@ -137,7 +142,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         : '-';
       infoBox.style.display = 'block';
 
-      //show tooltip continously for selected aircraft
       const marker = aircraftMarkers[id];
       if (marker) marker.bindTooltip(callsign, { permanent: true, className: 'aircraft-label', direction: 'top' }).openTooltip();
     }
@@ -161,7 +165,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (data.type === 'positionUpdate') {
         const id = data.aircraftId;
         const heading = data.heading || 0;
-        const imageUrl = data.flightState === 'landing' ? 'assets/aircraft_landing.svg' : 'assets/aircraft.svg';
+
+        let imageUrl = 'assets/aircraft.svg';
+        if (data.receptionState === 'aircraftLost') {
+          imageUrl = 'assets/aircraft_lost.svg';
+        } else if (data.flightState === 'landing') {
+          imageUrl = 'assets/aircraft_landing.svg';
+        }
 
         if (aircraftMarkers[id]) {
           aircraftMarkers[id].setLatLng([data.lat, data.lon]);
