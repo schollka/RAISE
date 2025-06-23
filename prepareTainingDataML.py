@@ -1,3 +1,15 @@
+'''
+              __|__
+       --@--@--(_)--@--@--       
+              RAISE         
+ Runway Approach Identification for Silent Entries
+------------------------------------------------------
+    Tracking • Prediction • Silent Entry Detection     
+------------------------------------------------------
+
+training data segmentation and preparation script
+'''
+
 import sqlite3
 import numpy as np
 import pandas as pd

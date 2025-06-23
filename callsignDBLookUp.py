@@ -1,3 +1,15 @@
+'''
+              __|__
+       --@--@--(_)--@--@--       
+              RAISE         
+ Runway Approach Identification for Silent Entries
+------------------------------------------------------
+    Tracking • Prediction • Silent Entry Detection     
+------------------------------------------------------
+
+callsign database handling and look up script
+'''
+
 import csv
 import threading
 import requests
