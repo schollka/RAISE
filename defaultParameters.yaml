@@ -2,7 +2,7 @@
 systemParameters: 
   HOST: 127.0.0.1                       #IP adress of the OGN decode TCP server (localhost) [IP]
   PORT: 50001                           #port number of the OGN decode TCP server [-]
-  DEQUE_LENGHT: 100000                  #maximum number of data points in the buffer (RAM) per aircraft [-]
+  DEQUE_LENGHT: 1200                    #maximum number of data points in the buffer (RAM) per aircraft [-]
   STORAGE_DURATION_SECONDS: 600         #maximum duration a data point is retained in buffer (RAM) [s]
   MAXIMUM_MESSAGES_IN_INPUT_BUFFER: 10  #maximum number of messages that are held in the input buffer for processing [-]
   REALTIME_MODE: True                  #run the system in realtime mode (deployed) or in asynchrone mode (testing) [bool]
@@ -15,6 +15,7 @@ systemParameters:
   MINIMUM_TIME_AIRBORNE: 120            #minimum time the aircraft has to be airborne to be able to store the in flight data into the database [s]
   PROBABILITY_OF_IN_FLIGHT_STORAGE: 0.2 #probability of storing the in flight data into the database [-]
   MAX_DIST_TO_AIRPORT_IN_FLIGHT_STORAGE: 3500  #maximum average distance to the airport for a in flight data storage event [km]
+  VERBOSE: 1                            #control system messages, the higher the number the more output is given [-]
 
 databaseParameters:
   ENABLE_DATABASE: True                 #if set to ture, then the arrival, deparure and in flight data is written to the specified database [boolean]

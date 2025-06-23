@@ -1,4 +1,22 @@
-print("Loading modules")
+'''
+              __|__
+       --@--@--(_)--@--@--       
+          RAISE SYSTEM BOOT          
+ Runway Approach Identification for Silent Entries
+------------------------------------------------------
+    Tracking • Prediction • Silent Entry Detection     
+------------------------------------------------------
+'''
+
+print("""\
+         __|__
+--@--@--(_)--@--@--       RAISE SYSTEM BOOT
+Runway Approach Identification for Silent Entries
+--------------------------------------------------
+ Tracking Live Approaches • Predicting Landings
+   Visualizing Silent Entries Near Runways
+--------------------------------------------------""")
+print("Loading Modules.")
 
 import socket
 import re
@@ -19,7 +37,7 @@ from asyncio import run_coroutine_threadsafe
 import threading
 import uvicorn
 
-print("Modules loaded. Initilizing System")
+print("Modules loaded.")
 
 ####################################################
 ################# OGN Client #######################
@@ -74,6 +92,7 @@ class OgnClient:
         '''
         Set up the OGN-Client and all its needed parameters
         '''
+        print("Initilizing System.")
 
         ####################################################
         ################# load parameter file ##############
@@ -84,11 +103,13 @@ class OgnClient:
         defaultParameters = os.path.join(sourceCodeDir, "defaultParameters.yaml") #build the absolute file path of the default parameter file
         
         # Check if parameterFile exists and copy default if nonexistent
+        print("Loading parameters.")
         if not os.path.exists(parameterFile):
             shutil.copy(defaultParameters, parameterFile) #copy default parameters
         #Load parameters
         with open(parameterFile, "r") as file: #load parameters from file, contains either custom values or the copied default values
             allParams = yaml.safe_load(file)
+        print("Parameters loaded.")
 
         #extract parameter dictionaries
         self.systemParameters = allParams["systemParameters"] #general system parameters
@@ -98,6 +119,7 @@ class OgnClient:
         self.databaseParameters = allParams["databaseParameters"] #parameters for the database
         self.machineLearningParameters = allParams["machineLearningParameters"] #ML specific parameters
         self.webServerParameters = allParams["webServerParameters"] #parameters regarding the web data server and web page
+        self.verbose = self.systemParameters["VERBOSE"] #get message output level
 
         ####################################################
         ################# initialize system ################
@@ -112,6 +134,8 @@ class OgnClient:
             modelPath = self.machineLearningParameters["MODEL_PATH"]
             if modelPath.endswith(".tflite"):
                 #use a tensorflow lite model for a low performance machine like a raspberry pi
+                if self.verbose >= 1:
+                    print("Loading tensorflow light and model.")
                 from tflite_runtime.interpreter import Interpreter
                 self.interpreter = Interpreter(model_path=modelPath)
                 self.interpreter.allocate_tensors()
@@ -120,6 +144,8 @@ class OgnClient:
                 self.isTFLite = True
             else:
                 #use a keras model for a high performance machine
+                if self.verbose >= 1:
+                    print("Loading Tensorflow Keras and model.")
                 from keras.models import load_model
                 self.model = load_model(modelPath)
                 self.isTFLite = False
@@ -156,6 +182,8 @@ class OgnClient:
         def start_web_server():
             uvicorn.run("webServer:app", host="0.0.0.0", port=8181, reload=False)
 
+        if self.verbose >= 1:
+            print("Starting uvicorn webserver (API).")
         connect_config(self.webServerParameters)
         set_map_config(self.airportParameters) #set the parameters for the map
         threading.Thread(target=start_web_server, daemon=True).start() #start webserver
@@ -308,9 +336,11 @@ class OgnClient:
     
     def connectToOgnServer(self, sock):
         #try to connect to to the ogn-decode TCP server and establish communication
-        print(f"Connecting to {self.host}:{self.port}...")
+        if self.verbose >= 1:
+            print(f"Connecting to {self.host}:{self.port}...")
         sock.connect((self.host, self.port))
-        print("Connected. Waiting for OGN data...\n")
+        if self.verbose >= 1:
+            print("Connected. Waiting for OGN data...\n")
 
     def debounceFlightState(self, aircraftId, newState):
         '''
@@ -440,9 +470,13 @@ class OgnClient:
             #write data to database
             if touchDown:
                 #store the last track points to the database
+                if self.verbose >= 5:
+                    print("Aircraft landed.")
                 self.writeDataToDatabase(aircraftId=aircraftId, track=track, category="arrival", duration=self.systemParameters["STORAGE_DURATION_ARRIVAL"])
 
             if takeOff:
+                if self.verbose >= 5:
+                    print("Aircraft departed.")
                 aircraft["aircraftDepartedAirport"] = True #set the flag, that the aircraft departed the airport
                 aircraft["departureTime"] = self.time.getSystemTime() #set the departure time (time at which the take off was deteced)
                 aircraft["storeDeparture"] = self.randomStorageFlag(self.systemParameters["PROBABILITY_OF_DEPATURE_STORAGE"]) #radnomly set the flag if this departure should be stored in the DB or not    
@@ -632,6 +666,8 @@ class OgnClient:
                         if len(recentPoints) >= self.databaseParameters["MINIMUM_NUMBER_DATAPOINTS"]:
                             #store data in database if enough points are available and database is enabled
                             if self.databaseParameters["ENABLE_DATABASE"]:
+                                if self.verbose >= 4:
+                                    print(f"Writing {len(recentPoints)} data points as categpry departure to database.")
                                 self.databaseService.saveTrack(trackDeque=recentPoints, aircraftId=aircraftId, category="departure")
         
             # write in-flight data
@@ -694,6 +730,8 @@ class OgnClient:
             if len(recentPoints) >= self.databaseParameters["MINIMUM_NUMBER_DATAPOINTS"]:
                 #store data in database if enough points are available and database is enabled
                 if self.databaseParameters["ENABLE_DATABASE"]:
+                    if self.verbose >= 4:
+                        print(f"Writing {len(recentPoints)} data points as categpry {category} to database.")
                     self.databaseService.saveTrack(trackDeque=recentPoints, aircraftId=aircraftId, category=category)
 
     def processMessageLine(self, line):
@@ -701,6 +739,8 @@ class OgnClient:
         parsed = self.parseOgnLine(line)
         if not parsed:
             return
+        if self.verbose >= 3:
+            print("Recieved message from ogn-decode.")
 
         aircraftId = parsed["aircraft"] #get the aircraft ID from message
         self.aircraftTracks[aircraftId]["track"].append(parsed) #append the recieved data
@@ -757,7 +797,7 @@ class OgnClient:
             data["flightEvents"] = self.createPlaceHolderFlightEvent()
 
         except Exception as e:
-            print(f"Fehler beim Verarbeiten der OGN-Daten: {e}")
+            print(f"Error while processing OGN-data: {e}")
             return
 
         aircraftId = data["aircraft"] #get the aircraft ID from the recieved data
@@ -836,6 +876,10 @@ class OgnClient:
                             self.processMessageLine(line) #process the recieved data
                             self.removeOldTracks() #remove old data from the RAM
                             self.airborneDataWriteDetection() #write airbone flight data
+                        
+                        if processedCount >= self.systemParameters["MAXIMUM_MESSAGES_IN_INPUT_BUFFER"]:
+                            if self.verbose == 2:
+                                print("Maximum number of messages in buffer reached.")
 
                         if '\n' in buffer:
                             buffer = '' #delete remaining buffer contents if too many messages were processed

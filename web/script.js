@@ -43,7 +43,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (selectedTrackRefreshInterval) clearInterval(selectedTrackRefreshInterval);
       infoBox.style.display = 'none';
 
-      // Entferne Tooltip bei Deselektion
+      //remove tooltip, deselection
       const marker = aircraftMarkers[selectedAircraft];
       if (marker) marker.closeTooltip();
     }
@@ -137,7 +137,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         : '-';
       infoBox.style.display = 'block';
 
-      // Zeige Tooltip dauerhaft für selektiertes Flugzeug
+      //show tooltip continously for selected aircraft
       const marker = aircraftMarkers[id];
       if (marker) marker.bindTooltip(callsign, { permanent: true, className: 'aircraft-label', direction: 'top' }).openTooltip();
     }

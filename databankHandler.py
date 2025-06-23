@@ -69,7 +69,7 @@ class DatabaseService:
                                     connect_args={"check_same_thread": False}
                                 ) #create engine
         with self.engine.connect() as conn:
-            conn.execute(text("PRAGMA journal_mode=WAL;")) #3enable write-ahed loggin mode for simulatanios writing and reading
+            conn.execute(text("PRAGMA journal_mode=WAL;")) #enable write-ahed loggin mode for simulatanios writing and reading
 
         Base.metadata.create_all(self.engine)
         self.Session = sessionmaker(bind=self.engine)

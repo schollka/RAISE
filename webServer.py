@@ -3,8 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from typing import Dict, List
 import asyncio
-
-from callsignDBLookUp import DDBLookup  # korrigierter Import
+from callsignDBLookUp import DDBLookup  
 
 app = FastAPI(root_path="/api")
 
@@ -17,7 +16,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ✅ konfigurierte Option aus YAML (manuell ersetzen)
 def is_callsign_translation_enabled():
     return globalConfig.get("LOOK_UP_ID_TO_CALLSIGN", False) 
 
@@ -112,6 +110,7 @@ def connect_aircraft_tracks(reference):
     global externalAircraftTracks
     externalAircraftTracks = reference
 
+#set the config of the map
 def set_map_config(airportParams):
     global mapConfig
     mapConfig = {
@@ -120,6 +119,7 @@ def set_map_config(airportParams):
         "zoom": airportParams.get("WEB_ZOOM_LEVEL", 12)
     }
 
+#get map gonfig
 @app.get("/config")
 async def get_config():
     return {
@@ -130,6 +130,7 @@ async def get_config():
         "mapZoom": mapConfig["zoom"]
     }
 
+#get global system config
 def connect_config(configDict):
     global globalConfig, ddb
     globalConfig = configDict
