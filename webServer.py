@@ -15,6 +15,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from typing import Dict, List
 import asyncio
+import random
+import string
 from callsignDBLookUp import DDBLookup  
 
 app = FastAPI(root_path="/api")
@@ -27,6 +29,20 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+#obfuscation maps
+idObfuscationMap: Dict[str, str] = {}
+reverseObfuscationMap: Dict[str, str] = {}
+
+def obfuscate_id(real_id: str) -> str:
+    if real_id not in idObfuscationMap:
+        rand = ''.join(random.choices(string.ascii_letters + string.digits, k=8))
+        idObfuscationMap[real_id] = rand
+        reverseObfuscationMap[rand] = real_id
+    return idObfuscationMap[real_id]
+
+def deobfuscate_id(obf_id: str) -> str:
+    return reverseObfuscationMap.get(obf_id)
 
 def is_callsign_translation_enabled():
     return globalConfig.get("LOOK_UP_ID_TO_CALLSIGN", False) 
@@ -49,7 +65,7 @@ async def get_all_aircrafts():
             continue
         lastPoint = entry["track"][-1]  #get latest position
         result.append({
-            "id": aircraftId,
+            "id": obfuscate_id(aircraftId),
             "lat": lastPoint.get("lat"),
             "lon": lastPoint.get("lon"),
             "heading": lastPoint.get("track",0),
@@ -58,18 +74,18 @@ async def get_all_aircrafts():
             "flightState": entry.get("stableState", "unknown"),
             "receptionState": entry.get("receptionState", "normal")
         })
-        a = result
     return JSONResponse(result)
 
 #REST endpoint: returns the full track (deque) of a specific aircraft
 @app.get("/aircrafts/{aircraft_id}/track")
 async def get_track(aircraft_id: str):
-    if externalAircraftTracks is None or aircraft_id not in externalAircraftTracks:
+    real_id = deobfuscate_id(aircraft_id)
+    if real_id is None or externalAircraftTracks is None or real_id not in externalAircraftTracks:
         return JSONResponse(status_code=404, content={"error": "Aircraft not found"})
 
     #prepare track with only lat/lon
     track = []
-    for point in externalAircraftTracks[aircraft_id]["track"]:
+    for point in externalAircraftTracks[real_id]["track"]:
         if "lat" in point and "lon" in point:
             track.append({"lat": point["lat"], "lon": point["lon"]})
 
@@ -78,11 +94,15 @@ async def get_track(aircraft_id: str):
 #REST endpoint: returns the callsign for an aircraft, or "XXXXX" if tracking not allowed
 @app.get("/callsign/{aircraft_id}")
 async def get_callsign(aircraft_id: str):
+    real_id = deobfuscate_id(aircraft_id)
+    if real_id is None:
+        return {"aircraft": "?", "callsign": "XXXXX"}
+
     if is_callsign_translation_enabled():
-        callsign = ddb.getCallsign(aircraft_id)
+        callsign = ddb.getCallsign(real_id)
     else:
-        callsign = aircraft_id
-    return {"aircraft": aircraft_id, "callsign": callsign}
+        callsign = real_id
+    return {"aircraft": real_id, "callsign": callsign}
 
 #WebSocket endpoint: accepts and stores connection for real-time updates
 @app.websocket("/ws")
@@ -102,7 +122,7 @@ async def push_position_update(aircraftId: str):
     lastPoint = externalAircraftTracks[aircraftId]["track"][-1]
     data = {
         "type": "positionUpdate",
-        "aircraftId": aircraftId,
+        "aircraftId": obfuscate_id(aircraftId),
         "lat": lastPoint.get("lat"),
         "lon": lastPoint.get("lon"),
         "heading": lastPoint.get("track",0),
@@ -131,7 +151,7 @@ def set_map_config(airportParams):
         "zoom": airportParams.get("WEB_ZOOM_LEVEL", 12)
     }
 
-#get map gonfig
+#get map config
 @app.get("/config")
 async def get_config():
     return {

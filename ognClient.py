@@ -11,7 +11,7 @@ main source code
 '''
 
 print("""\
-         __|__
+       __|__
 --@--@--(_)--@--@--       RAISE SYSTEM BOOT
 Runway Approach Identification for Silent Entries
 --------------------------------------------------
