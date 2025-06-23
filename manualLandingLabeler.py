@@ -1,4 +1,3 @@
-
 import sqlite3
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -16,11 +15,13 @@ sourceCodeDir = os.path.dirname(os.path.abspath(__file__)) #get the directory of
 parameterFile = os.path.join(sourceCodeDir, "parameters.yaml") #build the absolute file path of the expected parameter file
 
 #Load parameters
-with open(parameterFile, "r") as file: #load parameters from file, contains either custom values or the copied default values
+print("Loading parameters.")
+with open(parameterFile, "r") as file:
     allParams = yaml.safe_load(file)
 
-databaseParameters = allParams["databaseParameters"] #get the DB parameters
-airportParameters = allParams["airportParameters"] #get airport parameters
+databaseParameters = allParams["databaseParameters"]
+airportParameters = allParams["airportParameters"]
+print("Parameters loaded.")
 
 #geometry parameters
 kmPerDegreeLat = 111
@@ -31,9 +32,11 @@ conn = sqlite3.connect(databaseParameters["DATABASE_PATH"])
 cursor = conn.cursor()
 
 #get all ID's for the flights with category arrival
+print("Loading data from database.")
 arrival_flight_ids = pd.read_sql_query(
     "SELECT DISTINCT flightId FROM track_points WHERE category = 'arrival';", conn
 )
+print("Data loaded.")
 
 #define colors for each state
 state_colors = {
@@ -69,8 +72,41 @@ for i, flight_id in enumerate(arrival_flight_ids["flightId"]):
 
     selected_index = {"value": None}
     skip_flight = {"value": False}
+    remove_flight = {"value": False}
 
-    #create GeoDataFrame
+    def plot_track():
+        ax.clear()
+        updated_track_data = pd.read_sql_query(
+            f"""
+            SELECT id, time, altitude, lat, lon, state
+            FROM track_points
+            WHERE flightId = {flight_id}
+            ORDER BY id
+            """, conn
+        )
+        gdf_updated = gpd.GeoDataFrame(updated_track_data,
+            geometry=gpd.points_from_xy(updated_track_data["lon"], updated_track_data["lat"]),
+            crs="EPSG:4326"
+        ).to_crs(epsg=3857)
+
+        for state, color in state_colors.items():
+            mask = gdf_updated["state"] == state
+            if mask.any():
+                gdf_updated[mask].plot(ax=ax, label=state, color=color, edgecolor=color, markersize=10)
+
+        airport_geom = Point(airportParameters["AIRPORT_LONGITUDE"], airportParameters["AIRPORT_LATITUDE"])
+        airport_gdf = gpd.GeoDataFrame(geometry=[airport_geom], crs="EPSG:4326").to_crs(epsg=3857)
+        airport_gdf.plot(ax=ax, color="black", marker="x", markersize=100, label="Airport")
+
+        cx.add_basemap(ax, source=cx.providers.OpenStreetMap.Mapnik)
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.set_xlabel("")
+        ax.set_ylabel("")
+        ax.set_title(f"Database-flightId {flight_id} – click on the point that marks the beginning of the approach")
+        ax.legend()
+        fig.canvas.draw()
+
     gdf = gpd.GeoDataFrame(track_data, geometry=gpd.points_from_xy(track_data["lon"], track_data["lat"]), crs="EPSG:4326")
     gdf = gdf.to_crs(epsg=3857)
 
@@ -99,7 +135,11 @@ for i, flight_id in enumerate(arrival_flight_ids["flightId"]):
         airport_gdf.plot(ax=ax, color="black", marker="x", markersize=100, label="Airport")
 
         cx.add_basemap(ax, source=cx.providers.OpenStreetMap.Mapnik)
-        ax.set_title(f"flightId {flight_id} – Click start of landing")
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.set_xlabel("")
+        ax.set_ylabel("")
+        ax.set_title(f"Database-flightId {flight_id} – click on the point that marks the beginning of the approach")
         ax.legend()
         fig.canvas.draw()
 
@@ -110,7 +150,19 @@ for i, flight_id in enumerate(arrival_flight_ids["flightId"]):
         skip_flight["value"] = True
         plt.close()
 
-    #handle plot
+    def on_remove(event):
+        remove_flight["value"] = True
+        plt.close()
+
+    def on_reset(event):
+        cursor.execute(
+            "UPDATE track_points SET state = 'airborne' WHERE flightId = ? AND state = 'landing';",
+            (flight_id,)
+        )
+        conn.commit()
+        print("→ Reset: all 'landing' points set to 'airborne'.")
+        plot_track()
+
     fig, ax = plt.subplots(figsize=(10, 6))
     try:
         mng = plt.get_current_fig_manager()
@@ -130,7 +182,11 @@ for i, flight_id in enumerate(arrival_flight_ids["flightId"]):
     airport_gdf.plot(ax=ax, color="black", marker="x", markersize=100, label="Airport")
 
     cx.add_basemap(ax, source=cx.providers.OpenStreetMap.Mapnik)
-    ax.set_title(f"flightId {flight_id} – click on the point that marks the beginning of the approach")
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.set_xlabel("")
+    ax.set_ylabel("")
+    ax.set_title(f"Database-flightId {flight_id} – click on the point that marks the beginning of the approach")
     ax.legend()
 
     button_done_ax = plt.axes([0.75, 0.01, 0.1, 0.05])
@@ -141,11 +197,25 @@ for i, flight_id in enumerate(arrival_flight_ids["flightId"]):
     button_skip = Button(button_skip_ax, "Skip flight")
     button_skip.on_clicked(on_skip)
 
+    button_remove_ax = plt.axes([0.45, 0.01, 0.1, 0.05])
+    button_remove = Button(button_remove_ax, "Remove flight")
+    button_remove.on_clicked(on_remove)
+
+    button_reset_ax = plt.axes([0.3, 0.01, 0.1, 0.05])
+    button_reset = Button(button_reset_ax, "Reset landing")
+    button_reset.on_clicked(on_reset)
+
     cid = fig.canvas.mpl_connect("button_press_event", onclick)
     plt.show()
 
     if skip_flight["value"]:
         print("→ Flight skipped.")
+        continue
+
+    if remove_flight["value"]:
+        cursor.execute("DELETE FROM track_points WHERE flightId = ?;", (flight_id,))
+        conn.commit()
+        print("→ Flight removed from database.")
         continue
 
     if selected_index["value"] is not None:
@@ -163,4 +233,15 @@ for i, flight_id in enumerate(arrival_flight_ids["flightId"]):
         conn.commit()
         print(f"→ Updated: {changed_count} points set to 'landing'.")
 
+conn.close()
+
+# Count remaining flights per category
+conn = sqlite3.connect(databaseParameters["DATABASE_PATH"])
+cursor = conn.cursor()
+for category in ["arrival", "departure", "inflight"]:
+    result = cursor.execute(
+        "SELECT COUNT(DISTINCT flightId) FROM track_points WHERE category = ?;", (category,)
+    )
+    count = result.fetchone()[0]
+    print(f"Remaining flights with category '{category}': {count}")
 conn.close()
