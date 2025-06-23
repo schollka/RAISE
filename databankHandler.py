@@ -1,3 +1,15 @@
+'''
+              __|__
+       --@--@--(_)--@--@--       
+              RAISE         
+ Runway Approach Identification for Silent Entries
+------------------------------------------------------
+    Tracking • Prediction • Silent Entry Detection     
+------------------------------------------------------
+
+code for handling the database and write operations
+'''
+
 from sqlalchemy import create_engine, text, Column, Integer, Float, String, Boolean, DateTime, Time, Text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker

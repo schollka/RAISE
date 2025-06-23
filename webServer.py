@@ -1,3 +1,15 @@
+'''
+              __|__
+       --@--@--(_)--@--@--       
+              RAISE         
+ Runway Approach Identification for Silent Entries
+------------------------------------------------------
+    Tracking • Prediction • Silent Entry Detection     
+------------------------------------------------------
+
+code for API webserver
+'''
+
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
