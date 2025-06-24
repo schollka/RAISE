@@ -31,6 +31,10 @@ body {
   font-weight: bold;
 }
 
+.highlight-ai {
+  color: #66ccff;
+}
+
 .version {
   font-size: 14px;
   font-weight: normal;
