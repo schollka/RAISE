@@ -37,10 +37,10 @@ class DDBLookup:
                 reader = csv.DictReader(lines, delimiter=delimiter)
 
                 if 'DEVICE_ID' in reader.fieldnames and 'REGISTRATION' in reader.fieldnames:
-                    print(f"[DDB] Using delimiter '{delimiter}' with fields: {reader.fieldnames}")
+                    print(f"[Callsign DB] Using delimiter '{delimiter}' with fields: {reader.fieldnames}")
                     break
             else:
-                print(f"[DDB] Keine gültigen Spaltennamen in Header gefunden: {reader.fieldnames}")
+                print(f"[Callsign DB] No valid column names found: {reader.fieldnames}")
                 return
 
             lookup_tmp = {}
@@ -56,10 +56,10 @@ class DDBLookup:
 
             self.lookup = lookup_tmp
             self.lastLoaded = datetime.utcnow()
-            print(f"[DDB] Loaded {len(self.lookup)} entries at {self.lastLoaded}")
+            print(f"[Callsign DB] Loaded {len(self.lookup)} entries at {self.lastLoaded}")
 
         except Exception as e:
-            print(f"[DDB] Failed to load: {e}")
+            print(f"[Callsign DB] Failed to load: {e}")
 
     def _scheduleReload(self, refreshIntervall):
         threading.Timer(refreshIntervall, self._reload).start()

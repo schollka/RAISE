@@ -37,7 +37,7 @@ from webServer import connect_aircraft_tracks, push_position_update, set_map_con
 import asyncio
 from asyncio import run_coroutine_threadsafe
 import threading
-import uvicorn
+from uvicorn import Config, Server 
 
 print("Modules loaded.")
 
@@ -180,19 +180,50 @@ class OgnClient:
             "receptionState": "normal" #state of the signal reception
         })
         
-        #webserver start up
-        def start_web_server():
-            uvicorn.run("webServer:app", host="0.0.0.0", port=8181, reload=False)
+        #prepare eventloop thread but dont run it
+        self.loop = asyncio.new_event_loop()
+        self.loopThread = threading.Thread(target=self.startLoop, daemon=True)
 
+        #prepare web server objects
+        self.webServer = None
+        self.webServerThread = None
+
+    def startServer(self):
         if self.verbose >= 1:
             print("Starting uvicorn webserver (API).")
+
+        #set configuration
         connect_config(self.webServerParameters)
-        set_map_config(self.airportParameters) #set the parameters for the map
-        threading.Thread(target=start_web_server, daemon=True).start() #start webserver
-        connect_aircraft_tracks(self.aircraftTracks)  #connect RAISE data to the web server
-        self.loop = asyncio.new_event_loop() #create asynchrone loop in the background
-        self.loopThread = threading.Thread(target=self.startLoop, daemon=True) 
-        self.loopThread.start() #start loop
+        set_map_config(self.airportParameters)
+        connect_aircraft_tracks(self.aircraftTracks)
+
+        #start webserver
+        config = Config("webServer:app", host="0.0.0.0", port=8181, reload=False)
+        self.webServer = Server(config)
+        self.webServerThread = threading.Thread(target=self.webServer.run, daemon=True)
+        self.webServerThread.start()
+
+        # Async-Loop starten
+        self.loopThread.start()
+
+    
+    def shutdown(self):
+        if self.verbose >= 1:
+            print("Shutting down....")
+
+        #stop web server
+        if getattr(self, "webServer", None):
+            self.webServer.should_exit = True
+            self.webServerThread.join(timeout=2)
+
+        #stop async loop
+        if getattr(self, "loop", None) and self.loop.is_running():
+            self.loop.call_soon_threadsafe(self.loop.stop)
+            self.loopThread.join(timeout=2)
+
+        #close database
+        if getattr(self, "databaseService", None):
+            self.databaseService.shutdown()
         
 
     class TimeManager:
@@ -896,5 +927,17 @@ class OgnClient:
 
 
 if __name__ == "__main__":
-    client = OgnClient()
-    client.runClient()
+    client = None
+    try:
+        client = OgnClient()
+        client.startServer()
+        client.runClient()
+    except KeyboardInterrupt:
+        print("\n[INFO] Aborted by user (Strg+C)")
+    except Exception as e:
+        print(f"[ERROR] Unexpected error: {e}")
+    finally:
+        if client is not None:
+            client.shutdown()
+            print("[INFO] Client terminated.")
+

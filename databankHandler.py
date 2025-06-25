@@ -142,3 +142,7 @@ class DatabaseService:
 
         session.commit() #commit the changes to the database
         session.close() #close session to the database
+
+    def shutdown(self):
+        if self.engine:
+            self.engine.dispose()
