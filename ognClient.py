@@ -13,12 +13,11 @@ main source code
 print("""\
               __|__
        --------(_)--------       
-              RAISE       RAISE SYSTEM BOOT
-Runway Approach Identification for Silent Entries
---------------------------------------------------
- Tracking Live Approaches • Predicting Landings
-   Visualizing Silent Entries Near Runways
---------------------------------------------------""")
+              RAISE                    SYSTEM BOOT
+ Runway Approach Identification for Silent Entries
+------------------------------------------------------
+    Tracking • Prediction • Silent Entry Detection     
+------------------------------------------------------""")
 print("Loading Modules.")
 
 import socket
@@ -475,14 +474,14 @@ class OgnClient:
                 #store the last track points to the database
                 if self.verbose >= 5:
                     print("Aircraft landed.")
-                self.writeDataToDatabase(aircraftId=aircraftId, track=track, category="arrival", duration=self.systemParameters["STORAGE_DURATION_ARRIVAL"])
+                self.writeDataToDatabase(aircraftId=aircraftId, track=track, category="arrival", duration=self.databaseParameters["STORAGE_DURATION_ARRIVAL"])
 
             if takeOff:
                 if self.verbose >= 5:
                     print("Aircraft departed.")
                 aircraft["aircraftDepartedAirport"] = True #set the flag, that the aircraft departed the airport
                 aircraft["departureTime"] = self.time.getSystemTime() #set the departure time (time at which the take off was deteced)
-                aircraft["storeDeparture"] = self.randomStorageFlag(self.systemParameters["PROBABILITY_OF_DEPATURE_STORAGE"]) #radnomly set the flag if this departure should be stored in the DB or not    
+                aircraft["storeDeparture"] = self.randomStorageFlag(self.databaseParameters["PROBABILITY_OF_DEPATURE_STORAGE"]) #radnomly set the flag if this departure should be stored in the DB or not    
         else:
             #no state change occured => no event can be detected
             #store the default information
@@ -654,13 +653,13 @@ class OgnClient:
             #write departure data
             if aircraft.get("storeDeparture"): #if the flag was set to store the departure data
                 #check if the set amount of time since the departure has passed 
-                if (now - aircraft['departureTime']).total_seconds() >= self.systemParameters['STORAGE_DURATION_AFT_DEPARTURE']:
+                if (now - aircraft['departureTime']).total_seconds() >= self.databaseParameters['STORAGE_DURATION_AFT_DEPARTURE']:
                     aircraft['storeDeparture'] = False #set the flag to false to aviod storin the data multiple times
                     aircraft['lastTimeDataWrittenToDB'] = now #set the time of storage
 
                     #compute time window boundaries
-                    lowerBound = aircraft['departureTime'] - timedelta(seconds=self.systemParameters['STORAGE_DURATION_PRE_DEPARTURE'])
-                    upperBound = aircraft['departureTime'] + timedelta(seconds=self.systemParameters['STORAGE_DURATION_AFT_DEPARTURE'])
+                    lowerBound = aircraft['departureTime'] - timedelta(seconds=self.databaseParameters['STORAGE_DURATION_PRE_DEPARTURE'])
+                    upperBound = aircraft['departureTime'] + timedelta(seconds=self.databaseParameters['STORAGE_DURATION_AFT_DEPARTURE'])
                     
                     track = data["track"]
                     recentPoints = [point for point in track if lowerBound <= point['timestamp'] <= upperBound] #extract the points inside the time window
@@ -687,9 +686,9 @@ class OgnClient:
                 return #check if a valid airborne time was recieved
 
             #get system parameters
-            minAirborne = self.systemParameters["MINIMUM_TIME_AIRBORNE"]
-            storeInterval = self.systemParameters["STORAGE_DURATION_IN_FLIGHT"]
-            maximumAverageDistance = self.systemParameters["MAX_DIST_TO_AIRPORT_IN_FLIGHT_STORAGE"]
+            minAirborne = self.databaseParameters["MINIMUM_TIME_AIRBORNE"]
+            storeInterval = self.databaseParameters["STORAGE_DURATION_IN_FLIGHT"]
+            maximumAverageDistance = self.databaseParameters["MAX_DIST_TO_AIRPORT_IN_FLIGHT_STORAGE"]
 
             #time since the aircraft is airborne
             timeAirborne = (now - airborneSince).total_seconds()
@@ -717,7 +716,7 @@ class OgnClient:
                 return
 
             #if all conditions are met, then randomly decide to store the data
-            if self.randomStorageFlag(probability=self.systemParameters['PROBABILITY_OF_IN_FLIGHT_STORAGE']):
+            if self.randomStorageFlag(probability=self.databaseParameters['PROBABILITY_OF_IN_FLIGHT_STORAGE']):
                 aircraft["lastTimeDataWrittenToDB"] = now
                 aircraft["inFlightDataStored"] = True
                 self.writeDataToDatabase(aircraftId=aircraftId, track=data["track"],category='inFlight', duration=storeInterval)
