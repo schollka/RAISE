@@ -1,6 +1,6 @@
 '''
               __|__
-       --@--@--(_)--@--@--       
+       --------(_)--------       
               RAISE         
  Runway Approach Identification for Silent Entries
 ------------------------------------------------------
@@ -11,8 +11,9 @@ main source code
 '''
 
 print("""\
-       __|__
---@--@--(_)--@--@--       RAISE SYSTEM BOOT
+              __|__
+       --------(_)--------       
+              RAISE       RAISE SYSTEM BOOT
 Runway Approach Identification for Silent Entries
 --------------------------------------------------
  Tracking Live Approaches • Predicting Landings

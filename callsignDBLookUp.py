@@ -1,6 +1,6 @@
 '''
               __|__
-       --@--@--(_)--@--@--       
+       --------(_)--------       
               RAISE         
  Runway Approach Identification for Silent Entries
 ------------------------------------------------------
@@ -71,7 +71,7 @@ class DDBLookup:
     def getCallsign(self, icao: str) -> str:
         entry = self.lookup.get(icao.upper())
         if not entry:
-            return icao  # fallback: ID selbst
+            return "XXXXX"  
         if not entry['tracked'] or not entry['callsign']:
             return "XXXXX"
         return entry['callsign']

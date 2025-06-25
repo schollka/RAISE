@@ -1,8 +1,11 @@
 '''
               __|__
-       --@--@--(_)--@--@--       
+       --------(_)--------       
               RAISE         
  Runway Approach Identification for Silent Entries
+------------------------------------------------------
+    Tracking • Prediction • Silent Entry Detection     
+------------------------------------------------------
 ------------------------------------------------------
     Tracking • Prediction • Silent Entry Detection     
 ------------------------------------------------------
