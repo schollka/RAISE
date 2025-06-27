@@ -120,8 +120,6 @@ model = Sequential([
 ])
 
 
-
-
 model.compile(
     loss='binary_crossentropy',
     optimizer='adam',
@@ -145,7 +143,7 @@ history = model.fit(
 )
 
 #save model
-model.save("landingClassifier.keras")
+model.save(os.path.join(outputDir, "landingClassifier.keras"))
 print("Modell saved")
 
 #converting into tflite
@@ -157,7 +155,7 @@ converter.inference_output_type = tf.float32
 
 tfliteModel = converter.convert()
 
-with open("landingClassifierLite.tflite", "wb") as f:
+with open(os.path.join(outputDir, "landingClassifierLite.tflite"), "wb") as f:
     f.write(tfliteModel)
 
 print("TFLite model saved.")
@@ -167,6 +165,7 @@ val_loss, val_acc = model.evaluate(X_val, y_val)
 print(f"Validation accuracy: {val_acc:.4f}")
 
 #visualization Loss & Accuracy
+# plot and save accuracy
 plt.figure()
 plt.plot(history.history['accuracy'], label='Training Accuracy')
 plt.plot(history.history['val_accuracy'], label='Validation Accuracy')
@@ -174,8 +173,11 @@ plt.xlabel('Epoch')
 plt.ylabel('Accuracy')
 plt.legend()
 plt.title('Accuracy Verlauf')
-plt.show()
+plt.tight_layout()
+plt.savefig(os.path.join(outputDir, 'accuracy_plot.png'))  # save to outputDir
+plt.close()
 
+# plot and save loss
 plt.figure()
 plt.plot(history.history['loss'], label='Training Loss')
 plt.plot(history.history['val_loss'], label='Validation Loss')
@@ -183,7 +185,9 @@ plt.xlabel('Epoch')
 plt.ylabel('Loss')
 plt.legend()
 plt.title('Loss Verlauf')
-plt.show()
+plt.tight_layout()
+plt.savefig(os.path.join(outputDir, 'loss_plot.png'))  # save to outputDir
+plt.close()
 
 y_pred_prob = model.predict(X_val, verbose=0)
 
@@ -196,28 +200,25 @@ bestThreshold, bestF2 = findOptimalThresholdF2(y_val, y_pred_prob, beta=1.5)
 # evaluate final classification
 y_pred = (y_pred_prob > bestThreshold).astype(int)
 
-# print classification report
+reportPath = os.path.join(outputDir, "classification_report.txt")
+with open(reportPath, "w") as f:
+    # write optimal threshold report
+    f.write(f"Classification report with optimal threshold ({bestThreshold:.2f}):\n")
+    f.write(classification_report(y_val, y_pred))
+    f.write("\n\n")
+
+    # write threshold analysis for multiple values
+    for t in np.arange(0.4, 0.8, 0.05):
+        y_pred_threshold = (y_pred_prob > t).astype("int32")
+        f.write(f"Threshold: {t:.2f}\n")
+        f.write(classification_report(y_val, y_pred_threshold, digits=3))
+        f.write("\n\n")
+
+# print to console as before
 print(f"\nClassification report with optimal threshold ({bestThreshold:.2f}):")
 print(classification_report(y_val, y_pred))
-
-
 
 for t in np.arange(0.4, 0.8, 0.05):
     y_pred = (y_pred_prob > t).astype("int32")
     print(f"\nThreshold: {t:.2f}")
     print(classification_report(y_val, y_pred, digits=3))
-
-
-    #compute and plot confusion matrix
-    # cm = confusion_matrix(y_val, y_pred)
-    # sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
-    # plt.xlabel("Predicted")
-    # plt.ylabel("True")
-    # plt.title(f"Confusion Matrix (threshold = {t})")
-    # plt.show()
-
-
-
-
-
-
