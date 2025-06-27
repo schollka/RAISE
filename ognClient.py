@@ -700,7 +700,7 @@ class OgnClient:
                             #store data in database if enough points are available and database is enabled
                             if self.databaseParameters["ENABLE_DATABASE"]:
                                 if self.verbose >= 4:
-                                    print(f"Writing {len(recentPoints)} data points as categpry departure to database.")
+                                    print(f"Writing {len(recentPoints)} data points as category departure to database.")
                                 self.databaseService.saveTrack(trackDeque=recentPoints, aircraftId=aircraftId, category="departure")
         
             # write in-flight data
@@ -764,7 +764,7 @@ class OgnClient:
                 #store data in database if enough points are available and database is enabled
                 if self.databaseParameters["ENABLE_DATABASE"]:
                     if self.verbose >= 4:
-                        print(f"Writing {len(recentPoints)} data points as categpry {category} to database.")
+                        print(f"Writing {len(recentPoints)} data points as category {category} to database.")
                     self.databaseService.saveTrack(trackDeque=recentPoints, aircraftId=aircraftId, category=category)
 
     def processMessageLine(self, line):
