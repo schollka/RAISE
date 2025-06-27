@@ -35,9 +35,7 @@ minPointsRequired = machineLearningParameters["MIN_NUM_POINTS_SEQUENCE"] #get th
 features = machineLearningParameters["FEATURES"] #features used for the model
 
 #connect to the databse
-#conn = sqlite3.connect(databaseParameters["DATABASE_PATH"])
-conn = sqlite3.connect("C:\\Users\\Kai\\OneDrive - bwedu\\Uni\\SS 25\\09_EffizienzProgrammieren\\02_Database\\02_Database\\02_landingLabeled\\flightData.db")
-
+conn = sqlite3.connect(databaseParameters["DATABASE_PATH"])
 
 #load all relevant columns
 query = """
