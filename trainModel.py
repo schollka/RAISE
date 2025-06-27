@@ -16,14 +16,48 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 import tensorflow as tf
 from keras.models import Sequential
-from keras.layers import Conv1D, GlobalAveragePooling1D, Dense, Dropout, MaxPooling1D
-from sklearn.metrics import classification_report, confusion_matrix
+from keras.layers import Conv1D, GlobalAveragePooling1D, Dense, Dropout, MaxPooling1D, BatchNormalization
+from sklearn.metrics import classification_report, confusion_matrix, fbeta_score
 import matplotlib.pyplot as plt
 import seaborn as sns
 import os
 import yaml
 
+
 print("Modules loaded")
+
+
+def findOptimalThresholdF2(yTrue, yPredProb, beta=2.0, verbose=True):
+    """
+    Returns the threshold that maximizes the F-beta score (default beta=2 for recall emphasis).
+    
+    Parameters:
+        yTrue (array): True binary labels
+        yPredProb (array): Predicted probabilities from model
+        beta (float): Weight of recall in F-beta score
+        verbose (bool): If True, prints best threshold and score
+        
+    Returns:
+        bestThreshold (float): Threshold with highest F-beta score
+        bestFbeta (float): Corresponding F-beta score
+    """
+    thresholds = np.linspace(0.1, 0.9, 81)  # steps of 0.01
+    bestThreshold = 0.5
+    bestFbeta = -1.0
+
+    for t in thresholds:
+        yPred = (yPredProb > t).astype(int)
+        fbeta = fbeta_score(yTrue, yPred, beta=beta)
+        if fbeta > bestFbeta:
+            bestFbeta = fbeta
+            bestThreshold = t
+
+    if verbose:
+        print(f"Optimal threshold (F{beta:.1f}-score): {bestThreshold:.2f}")
+        print(f"Best F{beta:.1f}-score: {bestFbeta:.4f}")
+
+    return bestThreshold, bestFbeta
+
 
 sourceCodeDir = os.path.dirname(os.path.abspath(__file__))
 parameterFile = os.path.join(sourceCodeDir, "parameters.yaml")
@@ -57,14 +91,15 @@ print(f"Training data: {X_train.shape}, validation data: {X_val.shape}")
 #define model (input includes 6 features: relativeTime + 5 flight features)
 model = Sequential([
     # first convolutional layer with a wider kernel to capture longer patterns (e.g. descent trends)
-    Conv1D(64, 5, activation='relu', padding='same', input_shape=(X.shape[1], X.shape[2])),
+    Conv1D(64, 7, activation='relu', padding='same', input_shape=(X.shape[1], X.shape[2])),
+    BatchNormalization(),
     Dropout(0.2),
 
     # max pooling reduces the temporal dimension and highlights strong activations
     MaxPooling1D(pool_size=2),
 
     # second convolutional layer with a smaller kernel to capture finer local features
-    Conv1D(32, 3, activation='relu', padding='same'),
+    Conv1D(32, 5, activation='relu', padding='same'),
     Dropout(0.2),
 
     # third convolutional layer for additional abstraction
@@ -75,10 +110,10 @@ model = Sequential([
     GlobalAveragePooling1D(),
 
     # dense layer for final decision logic
+    Dense(128, activation='relu'),
+    Dropout(0.3),
     Dense(64, activation='relu'),
     Dropout(0.2),
-    Dense(32, activation='relu'),
-    Dropout(0.1),
 
     # output layer for binary classification (landing vs not landing)
     Dense(1, activation='sigmoid')
@@ -129,7 +164,7 @@ print("TFLite model saved.")
 
 #evaluation
 val_loss, val_acc = model.evaluate(X_val, y_val)
-print(f"Validierungsgenauigkeit: {val_acc:.4f}")
+print(f"Validation accuracy: {val_acc:.4f}")
 
 #visualization Loss & Accuracy
 plt.figure()
@@ -152,6 +187,21 @@ plt.show()
 
 y_pred_prob = model.predict(X_val, verbose=0)
 
+# predict probabilities on validation set
+y_pred_prob = model.predict(X_val, verbose=0)
+
+# find optimal threshold
+bestThreshold, bestF2 = findOptimalThresholdF2(y_val, y_pred_prob, beta=1.5)
+
+# evaluate final classification
+y_pred = (y_pred_prob > bestThreshold).astype(int)
+
+# print classification report
+print(f"\nClassification report with optimal threshold ({bestThreshold:.2f}):")
+print(classification_report(y_val, y_pred))
+
+
+
 for t in np.arange(0.4, 0.8, 0.05):
     y_pred = (y_pred_prob > t).astype("int32")
     print(f"\nThreshold: {t:.2f}")
@@ -159,10 +209,15 @@ for t in np.arange(0.4, 0.8, 0.05):
 
 
     #compute and plot confusion matrix
-    cm = confusion_matrix(y_val, y_pred)
-    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
-    plt.xlabel("Predicted")
-    plt.ylabel("True")
-    plt.title(f"Confusion Matrix (threshold = {t})")
-    plt.show()
+    # cm = confusion_matrix(y_val, y_pred)
+    # sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
+    # plt.xlabel("Predicted")
+    # plt.ylabel("True")
+    # plt.title(f"Confusion Matrix (threshold = {t})")
+    # plt.show()
+
+
+
+
+
 

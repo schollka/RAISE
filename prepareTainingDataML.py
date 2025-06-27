@@ -35,7 +35,9 @@ minPointsRequired = machineLearningParameters["MIN_NUM_POINTS_SEQUENCE"] #get th
 features = machineLearningParameters["FEATURES"] #features used for the model
 
 #connect to the databse
-conn = sqlite3.connect(databaseParameters["DATABASE_PATH"])
+#conn = sqlite3.connect(databaseParameters["DATABASE_PATH"])
+conn = sqlite3.connect("C:\\Users\\Kai\\OneDrive - bwedu\\Uni\\SS 25\\09_EffizienzProgrammieren\\02_Database\\02_Database\\02_landingLabeled\\flightData.db")
+
 
 #load all relevant columns
 query = """
@@ -74,16 +76,25 @@ for flightId, flight in tqdm(data.groupby("flightId"), desc="Processing flights"
         n = len(window) #get number of points in time window
 
         if n >= minPointsRequired: 
-            data = window[features].values #get the data when enough points are available
+            #calculate relative time within the window (in seconds since start of window)
+            relativeTime = (window["timeSec"].values - startTime).reshape(-1, 1)  # shape: (n, 1)
+
+            #extract configured features for this time window
+            featureData = window[features].values  # shape: (n, 5)
+
+            #combine relative time with the feature data → final shape: (n, 6)
+            data = np.hstack([relativeTime, featureData])
 
             if n < sequenceLength:
-                #pad the data with the last data point, if not enough points are available
-                pad = np.tile(data[-1], (sequenceLength - n, 1))
-                data = np.vstack([data, pad])
+                #pad the data with the last available row if not enough points are present
+                lastRow = data[-1]  #last valid data point (including time)
+                pad = np.tile(lastRow, (sequenceLength - n, 1))  #replicate it as needed
+                data = np.vstack([data, pad])  #append padding to the data
             elif n > sequenceLength:
-                #downsample data
-                idxs = np.linspace(0, n - 1, sequenceLength).astype(int)
-                data = data[idxs]
+                #downsample the window evenly to match the desired sequence length
+                idxs = np.linspace(0, n - 1, sequenceLength).astype(int)  # choose evenly spaced indices
+                data = data[idxs]  # select the downsampled rows
+
 
             label = 1 if window.iloc[-1]["state"] == "landing" else 0 #label the data point as 1 if the state is landing
 

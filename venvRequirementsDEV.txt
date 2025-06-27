@@ -4,7 +4,8 @@ numpy<2
 scikit-learn
 matplotlib
 seaborn
-tqdm  # Fortschrittsbalken z. B. beim Training
+tqdm
+contextily
 
 # webserver
 uvicorn
@@ -14,7 +15,6 @@ requests
 
 # database
 sqlalchemy
-# sqlite3 wird mit Python geliefert (stdlib), kein pip-Eintrag nötig
 
 # data handling & visualization
 pandas

@@ -535,38 +535,43 @@ class OgnClient:
         sequenceLength = self.machineLearningParameters["SEQUENCE_LENGTH"]
         sequenceTimeWindow = self.machineLearningParameters["SEQUENCE_TIME_WINDOW"]
         windowStart = now - timedelta(seconds=sequenceTimeWindow)
-        recentPoints = [p for p in track if p["timestamp"] >= windowStart] #get the corresponding data points
+        recentPoints = [p for p in track if p["timestamp"] >= windowStart]  # get the corresponding data points
 
         if len(recentPoints) < self.machineLearningParameters["MIN_NUM_POINTS_SEQUENCE"]:
-            return False  #not enough data points
+            return False  # not enough data points
 
         #extract features from the time window into array
         features = self.machineLearningParameters["FEATURES"]
-        featureArray = np.array([
-            [p[f] for f in features]
-            for p in recentPoints
-        ])
+        featureArray = []
+        for p in recentPoints:
+            # compute relative time in seconds (float) from window start
+            relativeTime = (p["timestamp"] - windowStart).total_seconds()
+            featureRow = [relativeTime] + [p[f] for f in features]  # prepend relative time
+            featureArray.append(featureRow)
 
-        n = len(featureArray) #get length of feature sequence
+        featureArray = np.array(featureArray)
+        n = len(featureArray)
 
-        if n < sequenceLength: #pad the sequence with the last data point when to little points are present
+        if n < sequenceLength:
+            # pad the sequence with the last row (including relative time)
             pad = np.tile(featureArray[-1], (sequenceLength - n, 1))
             featureArray = np.vstack([featureArray, pad])
-        elif n > sequenceLength: #subsample sequence when to much data points are present
+        elif n > sequenceLength:
+            # subsample sequence uniformly to fit sequenceLength
             idxs = np.linspace(0, n - 1, sequenceLength).astype(int)
             featureArray = featureArray[idxs]
 
-        inputArray = np.expand_dims(featureArray, axis=0)  #shape: (1, sequenceLength, numFeatures)
+        inputArray = np.expand_dims(featureArray, axis=0)  # shape: (1, sequenceLength, 6)
 
         if self.isTFLite:
-            #predict using a tensorflow lite model on low performance hardware
-            prob = self.predictTFLite(inputArray) #execute model and get probability of landing
+            # predict using a TensorFlow Lite model on low performance hardware
+            prob = self.predictTFLite(inputArray)  # get probability of landing
         else:
-            #predict using a full tensorflow keras model on high performance hardware
-            prob = self.model.predict(inputArray, verbose=0)[0][0] #execute model and get probability of landing
+            # predict using full TensorFlow Keras model
+            prob = self.model.predict(inputArray, verbose=0)[0][0]
 
+        return prob > self.machineLearningParameters["REALTIME_PROBABILITY_THRESHOLD"]
 
-        return prob > self.machineLearningParameters["REALTIME_PROBABILITY_THRESHOLD"] #return flag
 
     def stateMachine(self, aircraftId):
         '''
