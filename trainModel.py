@@ -16,7 +16,7 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 import tensorflow as tf
 from keras.models import Sequential
-from keras.layers import Conv1D, GlobalAveragePooling1D, Dense, Dropout
+from keras.layers import Conv1D, GlobalAveragePooling1D, Dense, Dropout, MaxPooling1D
 from sklearn.metrics import classification_report, confusion_matrix
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -54,16 +54,38 @@ X_train, X_val, y_train, y_val = train_test_split(
 
 print(f"Training data: {X_train.shape}, validation data: {X_val.shape}")
 
-#define model
+#define model (input includes 6 features: relativeTime + 5 flight features)
 model = Sequential([
-    Conv1D(filters=64, kernel_size=3, activation='relu', input_shape=(X.shape[1], X.shape[2])),
-    Dropout(0.3),
-    Conv1D(filters=32, kernel_size=3, activation='relu'),
+    # first convolutional layer with a wider kernel to capture longer patterns (e.g. descent trends)
+    Conv1D(64, 5, activation='relu', padding='same', input_shape=(X.shape[1], X.shape[2])),
     Dropout(0.2),
+
+    # max pooling reduces the temporal dimension and highlights strong activations
+    MaxPooling1D(pool_size=2),
+
+    # second convolutional layer with a smaller kernel to capture finer local features
+    Conv1D(32, 3, activation='relu', padding='same'),
+    Dropout(0.2),
+
+    # third convolutional layer for additional abstraction
+    Conv1D(16, 3, activation='relu', padding='same'),
+    Dropout(0.1),
+
+    # global pooling aggregates features across the time axis
     GlobalAveragePooling1D(),
+
+    # dense layer for final decision logic
+    Dense(64, activation='relu'),
+    Dropout(0.2),
     Dense(32, activation='relu'),
+    Dropout(0.1),
+
+    # output layer for binary classification (landing vs not landing)
     Dense(1, activation='sigmoid')
 ])
+
+
+
 
 model.compile(
     loss='binary_crossentropy',
@@ -128,16 +150,19 @@ plt.legend()
 plt.title('Loss Verlauf')
 plt.show()
 
-#Confusion Matrix & classification report
-y_pred_prob = model.predict(X_val)
-y_pred = (y_pred_prob > 0.5).astype("int32")
+y_pred_prob = model.predict(X_val, verbose=0)
 
-print("\nClassification report:")
-print(classification_report(y_val, y_pred))
+for t in np.arange(0.4, 0.8, 0.05):
+    y_pred = (y_pred_prob > t).astype("int32")
+    print(f"\nThreshold: {t:.2f}")
+    print(classification_report(y_val, y_pred, digits=3))
 
-cm = confusion_matrix(y_val, y_pred)
-sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
-plt.xlabel("Predicted")
-plt.ylabel("True")
-plt.title("Confusion Matrix")
-plt.show()
+
+    #compute and plot confusion matrix
+    cm = confusion_matrix(y_val, y_pred)
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
+    plt.xlabel("Predicted")
+    plt.ylabel("True")
+    plt.title(f"Confusion Matrix (threshold = {t})")
+    plt.show()
+
