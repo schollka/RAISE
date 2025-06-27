@@ -425,7 +425,7 @@ RAISE continuously stores:
 - Random short in-flight sequences near the airfield
 
 Data acquisition should be long rather than short.  
-It is recommended to collect **at least 300 approaches** after installation.  
+It is recommended to collect **at least 200 approaches** after installation.  
 Make sure the dataset covers **all possible runway directions and approach paths** relevant to your airfield.
 
 Once enough data has been collected, it must be manually labeled on a machine with a graphical user interface.  
