@@ -253,7 +253,7 @@ conn.close()
 # Count remaining flights per category
 conn = sqlite3.connect(databaseParameters["DATABASE_PATH"])
 cursor = conn.cursor()
-for category in ["arrival", "departure", "inflight"]:
+for category in ["arrival", "departure", "inFlight"]:
     result = cursor.execute(
         "SELECT COUNT(DISTINCT flightId) FROM track_points WHERE category = ?;", (category,)
     )
