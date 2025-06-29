@@ -67,7 +67,6 @@ for flightId, df in tqdm(df_all.groupby("flightId"), desc="Flights"):
         startTime = window["timestamp"].iloc[0]
         relTime = (window["timestamp"] - startTime).dt.total_seconds().values.reshape(-1, 1)
         featureMatrix = window[features].values
-        #print(featureMatrix)
         sequence = np.hstack([relTime, featureMatrix])
         n = sequence.shape[0]
 
@@ -83,13 +82,15 @@ for flightId, df in tqdm(df_all.groupby("flightId"), desc="Flights"):
 
         lat = df["lat"].iloc[i]
         lon = df["lon"].iloc[i]
+        heading = df["track"].iloc[i]
 
         results.append({
             "flightId": flightId,
             "timestamp": currentTime.time().strftime("%H:%M:%S"),
             "lat": lat,
             "lon": lon,
-            "probability": prob
+            "probability": prob,
+            "heading": heading,
         })
 
 #store as data frame
