@@ -1,6 +1,7 @@
 import argparse
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
 import geopandas as gpd
 import contextily as ctx
 from shapely.geometry import Point
@@ -36,17 +37,18 @@ for flightId, group in df.groupby("flightId"):
 
     # Zuweisung zu Runway (falls aktiviert)
     if runways:
-        headingWindow = group[group["seconds"] >= group["seconds"].max() - 30]
+        runways = [int(float(r)) for r in runways]
+        headingWindow = group[group["seconds"] >= group["seconds"].max() - 45]
         if headingWindow.empty or "heading" not in headingWindow:
             continue
         avgHeading = headingWindow["heading"].mean() % 360
-        print(f"⟶ Flight {flightId}: avgHeading = {avgHeading:.1f}°")
+        print(f"Flight {flightId}: avgHeading = {avgHeading:.1f}°")
 
         assigned = False
         for runwayLabel in runways:
             headingDeg = (runwayLabel * 10) % 360
             diff = min(abs(avgHeading - headingDeg), 360 - abs(avgHeading - headingDeg))
-            if diff <= 30:
+            if diff <= 20:
                 segment["assignedRunway"] = f"{int(runwayLabel):02d}"
                 segments.append(segment)
                 assigned = True
@@ -81,20 +83,50 @@ if runways:
     for runwayId, runwayGroup in gdf.groupby("assignedRunway"):
         fig, ax = plt.subplots(figsize=(10, 10))
         runwayGroup.plot(ax=ax, color=colors.loc[runwayGroup.index], alpha=alpha.loc[runwayGroup.index], markersize=50)
+        # Legende hinzufügen
+        legendHandles = [
+            mpatches.Patch(color="red", label="landing"),
+            mpatches.Patch(color="blue", label="other")
+        ]
+        ax.legend(handles=legendHandles, title="Classification", loc="upper right")
         ax.set_xlim(runwayGroup.geometry.x.min() - 500, runwayGroup.geometry.x.max() + 500)
         ax.set_ylim(runwayGroup.geometry.y.min() - 500, runwayGroup.geometry.y.max() + 500)
         ctx.add_basemap(ax, source=ctx.providers.OpenStreetMap.Mapnik)
-        ax.set_title(f"Runway {runwayId}")
+        ax.set_title(f"Approach Paths for Runway {runwayId} with Classification Threshold {threshold}")
         ax.set_axis_off()
         plt.tight_layout()
         plt.show()
-else:
+
+    #Dritter Plot: Alle Flüge kombiniert
     fig, ax = plt.subplots(figsize=(10, 10))
     gdf.plot(ax=ax, color=colors, alpha=alpha, markersize=50)
+    # Legende hinzufügen
+    legendHandles = [
+        mpatches.Patch(color="red", label="landing"),
+        mpatches.Patch(color="blue", label="other")
+    ]
+    ax.legend(handles=legendHandles, title="Classification", loc="upper right")
     ax.set_xlim(gdf.geometry.x.min() - 500, gdf.geometry.x.max() + 500)
     ax.set_ylim(gdf.geometry.y.min() - 500, gdf.geometry.y.max() + 500)
     ctx.add_basemap(ax, source=ctx.providers.OpenStreetMap.Mapnik)
-    ax.set_title("Alle Flüge kombiniert")
+    ax.set_title(f"Approach Paths with Classification Threshold {threshold}")
+    ax.set_axis_off()
+    plt.tight_layout()
+    plt.show()
+
+else:
+    fig, ax = plt.subplots(figsize=(10, 10))
+    gdf.plot(ax=ax, color=colors, alpha=alpha, markersize=50)
+    # Legende hinzufügen
+    legendHandles = [
+        mpatches.Patch(color="red", label="landing"),
+        mpatches.Patch(color="blue", label="other")
+    ]
+    ax.legend(handles=legendHandles, title="Classification", loc="upper right")
+    ax.set_xlim(gdf.geometry.x.min() - 500, gdf.geometry.x.max() + 500)
+    ax.set_ylim(gdf.geometry.y.min() - 500, gdf.geometry.y.max() + 500)
+    ctx.add_basemap(ax, source=ctx.providers.OpenStreetMap.Mapnik)
+    ax.set_title(f"Approach Paths with Classification Threshold {threshold}")
     ax.set_axis_off()
     plt.tight_layout()
     plt.show()
