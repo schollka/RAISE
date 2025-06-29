@@ -558,7 +558,6 @@ class OgnClient:
             relativeTime = (p["timestamp"] - windowStart).total_seconds()
             featureRow = [relativeTime] + [p[f] for f in features]  # prepend relative time
             featureArray.append(featureRow)
-
         featureArray = np.array(featureArray)
         n = len(featureArray)
 

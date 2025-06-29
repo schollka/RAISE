@@ -56,7 +56,7 @@ machineLearningParameters:
   SEQUENCE_TIME_WINDOW: 60            #size of the rolling time window for the ML landing detection [s]
   SEQUENCE_LENGTH: 60                 #number of points in the rolling time window, SEQUENCE_TIME_WINDOW * frequencyRecievedMessages [-]
   MIN_NUM_POINTS_SEQUENCE: 50         #minimum number of points in the time window used for ML landing detection [-]
-  FEATURES: ["altitude", "groundSpeed", "climbRate", "track", "turnRate"] #features from the data set used for the model prediction
+  FEATURES: ["lat", "lon", "altitude", "groundSpeed", "climbRate", "track", "turnRate"] #features from the data set used for the model prediction
 
 #web server parameters
 webServerParameters:
