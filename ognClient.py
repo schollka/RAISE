@@ -38,6 +38,7 @@ import asyncio
 from asyncio import run_coroutine_threadsafe
 import threading
 from uvicorn import Config, Server 
+from callsignDBLookUp import DDBLookup
 
 print("Modules loaded.")
 
@@ -153,6 +154,8 @@ class OgnClient:
                 self.isTFLite = False
         else:
             self.model = None
+
+        self.callsignDB = DDBLookup(self.webServerParameters["ID_DB_REFRESH_INTERVALL"])
         
         #initialize aircraft tracks dictionary
         self.aircraftTracks = defaultdict(lambda: {
@@ -375,6 +378,13 @@ class OgnClient:
         if self.verbose >= 1:
             print("Connected. Waiting for OGN data...\n")
 
+    def isTrackingAllowed(self, aircraftId):
+        #check with the OGN DB if tracking is allowed or not and return it
+        if self.callsignDB.getCallsign(aircraftId) != "XXXXX":
+            return True #callsign is returned => tracking allowed
+        else:
+            return False #no callsign allowed => no tracking allowed
+        
     def debounceFlightState(self, aircraftId, newState):
         '''
         The computed state of the aircraft can toggle between different states.
@@ -704,9 +714,10 @@ class OgnClient:
                         if len(recentPoints) >= self.databaseParameters["MINIMUM_NUMBER_DATAPOINTS"]:
                             #store data in database if enough points are available and database is enabled
                             if self.databaseParameters["ENABLE_DATABASE"]:
-                                if self.verbose >= 4:
-                                    print(f"Writing {len(recentPoints)} data points as category departure to database.")
-                                self.databaseService.saveTrack(trackDeque=recentPoints, aircraftId=aircraftId, category="departure")
+                                if self.isTrackingAllowed(aircraftId=aircraftId):
+                                    if self.verbose >= 4:
+                                        print(f"Writing {len(recentPoints)} data points as category departure to database.")
+                                        self.databaseService.saveTrack(trackDeque=recentPoints, aircraftId=aircraftId, category="departure")
         
             # write in-flight data
             if aircraft.get("stableState") != "airborne":
@@ -768,9 +779,10 @@ class OgnClient:
             if len(recentPoints) >= self.databaseParameters["MINIMUM_NUMBER_DATAPOINTS"]:
                 #store data in database if enough points are available and database is enabled
                 if self.databaseParameters["ENABLE_DATABASE"]:
-                    if self.verbose >= 4:
-                        print(f"Writing {len(recentPoints)} data points as category {category} to database.")
-                    self.databaseService.saveTrack(trackDeque=recentPoints, aircraftId=aircraftId, category=category)
+                    if self.isTrackingAllowed(aircraftId=aircraftId):
+                        if self.verbose >= 4:
+                            print(f"Writing {len(recentPoints)} data points as category {category} to database.")
+                        self.databaseService.saveTrack(trackDeque=recentPoints, aircraftId=aircraftId, category=category)
 
     def processMessageLine(self, line):
         #used when the system runs in synchrone mode and recieves data from ogn-decode
