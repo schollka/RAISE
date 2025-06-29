@@ -278,8 +278,6 @@ To ensure the RAISE OGN Client starts automatically on boot, set up a `systemd` 
    Restart=always
    RestartSec=2
    Environment=PYTHONUNBUFFERED=1
-   StandardOutput=journal
-   StandardError=journal
 
    [Install]
    WantedBy=multi-user.target
