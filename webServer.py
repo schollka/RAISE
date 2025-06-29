@@ -17,7 +17,8 @@ from typing import Dict, List
 import asyncio
 import random
 import string
-from callsignDBLookUp import DDBLookup  
+from callsignDBLookUp import DDBLookup
+from datetime import time, datetime
 
 app = FastAPI(root_path="/api")
 
@@ -64,6 +65,14 @@ async def get_all_aircrafts():
         if not entry["track"]:
             continue
         lastPoint = entry["track"][-1]  #get latest position
+
+        #format lastTimeSeen to string (assume it's datetime or time object)
+        lastSeen = lastPoint.get("time", None)
+        if isinstance(lastSeen, (datetime, time)):
+            lastSeenStr = lastSeen.isoformat()
+        else:
+            lastSeenStr = None
+
         result.append({
             "id": obfuscate_id(aircraftId),
             "lat": lastPoint.get("lat"),
@@ -72,7 +81,8 @@ async def get_all_aircrafts():
             "alt": lastPoint.get("alt", 0),
             "speed": lastPoint.get("speed", 0),
             "flightState": entry.get("stableState", "unknown"),
-            "receptionState": entry.get("receptionState", "normal")
+            "receptionState": entry.get("receptionState", "normal"),
+            "lastTimeSeen": lastSeenStr
         })
     return JSONResponse(result)
 
@@ -120,6 +130,14 @@ async def push_position_update(aircraftId: str):
     if externalAircraftTracks is None or not externalAircraftTracks[aircraftId]["track"]:
         return
     lastPoint = externalAircraftTracks[aircraftId]["track"][-1]
+
+    #format lastTimeSeen to string (assume it's datetime or time object)
+    lastSeen = lastPoint.get("timestamp", None)
+    if isinstance(lastSeen, (datetime, time)):
+        lastSeenStr = lastSeen.isoformat()
+    else:
+        lastSeenStr = None
+
     data = {
         "type": "positionUpdate",
         "aircraftId": obfuscate_id(aircraftId),
@@ -129,7 +147,8 @@ async def push_position_update(aircraftId: str):
         "alt": lastPoint.get("alt", 0),
         "speed": lastPoint.get("speed", 0),
         "flightState": externalAircraftTracks[aircraftId].get("stableState", "unknown"),
-        "receptionState": externalAircraftTracks[aircraftId].get("receptionState", "normal")
+        "receptionState": externalAircraftTracks[aircraftId].get("receptionState", "normal"),
+        "lastTimeSeen": lastSeenStr
     }
     for ws in websocketClients:
         try:

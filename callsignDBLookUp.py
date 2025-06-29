@@ -13,15 +13,16 @@ callsign database handling and look up script
 import csv
 import threading
 import requests
-from datetime import datetime
+import random
+from datetime import datetime, timezone
 
 DDB_URL = "https://ddb.glidernet.org/download/"
-RELOAD_INTERVAL_SECONDS = 43200  # 12h
 
 class DDBLookup:
     def __init__(self, refreshIntervall):
         self.lookup = {}
         self.lastLoaded = None
+        self.refreshIntervall = refreshIntervall
         self._loadDdb()
         self._scheduleReload(refreshIntervall)
 
@@ -33,7 +34,7 @@ class DDBLookup:
             for delimiter in [',', ';']:
                 lines = response.text.splitlines()
                 if lines and lines[0].startswith("#"):
-                    lines[0] = lines[0][1:]  # '#' am Anfang entfernen
+                    lines[0] = lines[0][1:]
                 reader = csv.DictReader(lines, delimiter=delimiter)
 
                 if 'DEVICE_ID' in reader.fieldnames and 'REGISTRATION' in reader.fieldnames:
@@ -41,6 +42,7 @@ class DDBLookup:
                     break
             else:
                 print(f"[Callsign DB] No valid column names found: {reader.fieldnames}")
+                self._retryLoadDdbInBackground()
                 return
 
             lookup_tmp = {}
@@ -55,18 +57,25 @@ class DDBLookup:
                     }
 
             self.lookup = lookup_tmp
-            self.lastLoaded = datetime.utcnow()
+            self.lastLoaded = datetime.now(timezone.utc)
             print(f"[Callsign DB] Loaded {len(self.lookup)} entries at {self.lastLoaded}")
 
         except Exception as e:
             print(f"[Callsign DB] Failed to load: {e}")
+            self._retryLoadDdbInBackground()
+
+    def _retryLoadDdbInBackground(self):
+        retryIn = random.randint(5, 15)
+        print(f"[Callsign DB] Retry scheduled in {retryIn} seconds")
+        threading.Timer(retryIn, self._loadDdb).start()
 
     def _scheduleReload(self, refreshIntervall):
-        threading.Timer(refreshIntervall, self._reload).start()
+        threading.Timer(refreshIntervall, lambda: self._reload(refreshIntervall)).start()
 
-    def _reload(self):
+    def _reload(self, refreshIntervall):
+        print("[Callsign DB] Scheduled reload...")
         self._loadDdb()
-        self._scheduleReload()
+        self._scheduleReload(refreshIntervall)
 
     def getCallsign(self, icao: str) -> str:
         entry = self.lookup.get(icao.upper())

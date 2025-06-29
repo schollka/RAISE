@@ -9,13 +9,14 @@ let selectedAircraft = null;
 let selectedTrackRefreshInterval = null;
 let latestAircrafts = [];
 
-let infoBox, infoCallsign, infoAlt, infoSpeed;
+let infoBox, infoCallsign, infoAlt, infoSpeed, infoLastTimeSeen;
 
 document.addEventListener('DOMContentLoaded', async () => {
   infoBox = document.getElementById('aircraft-info');
   infoCallsign = document.getElementById('info-callsign');
   infoAlt = document.getElementById('info-alt');
   infoSpeed = document.getElementById('info-speed');
+  infoLastTimeSeen = document.getElementById('info-lastTimeSeen');
 
   const config = await fetch(`http://${SERVER}:${API_PORT}/config`).then(r => r.json());
   const map = L.map('map', {
@@ -65,6 +66,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         iconAnchor: [16, 16]
       });
       marker.setIcon(icon);
+    }
+  }
+
+  function formatLastTimeSeen(isoString) {
+    try {
+      const dt = new Date(isoString);
+      return dt.toLocaleTimeString('en-GB', { hour12: false });
+    } catch {
+      return '-';
     }
   }
 
@@ -140,10 +150,16 @@ document.addEventListener('DOMContentLoaded', async () => {
       infoSpeed.textContent = aircraft.speed != null
         ? Math.round(aircraft.speed * 3.6)
         : '-';
+      infoLastTimeSeen.textContent = formatLastTimeSeen(aircraft.lastTimeSeen);
+
       infoBox.style.display = 'block';
 
       const marker = aircraftMarkers[id];
-      if (marker) marker.bindTooltip(callsign, { permanent: true, className: 'aircraft-label', direction: 'top' }).openTooltip();
+      if (marker) marker.bindTooltip(callsign, {
+        permanent: true,
+        className: 'aircraft-label',
+        direction: 'top'
+      }).openTooltip();
     }
   }
 
@@ -193,6 +209,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             infoSpeed.textContent = data.speed != null
               ? Math.round(data.speed * 3.6)
               : '-';
+            infoLastTimeSeen.textContent = formatLastTimeSeen(data.lastTimeSeen);
           }
         }
       }
