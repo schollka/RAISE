@@ -376,6 +376,21 @@ To ensure the RAISE OGN Client starts automatically on boot, set up a `systemd` 
    sudo systemctl reload nginx
    ```
 
+6. **Configure Hostname for Tile Caching**
+
+   The **RAISE** web server uses **NGINX** to cache OpenStreetMap tiles locally. This reduces network load and minimizes repeated requests to the OpenStreetMap server.
+
+   To ensure the tile requests work correctly on the Raspberry Pi itself, you need to define the hostname `ogn` by adding the following entry to the system's hosts file:
+
+   ```bash
+   sudo nano /etc/hosts
+   ```
+
+   Add this line, if not already present:
+   `127.0.1.1 ogn`
+
+   This tells the system that ogn refers to the local machine.
+
 ### 8. Accessing RAISE
 
 NGINX now serves the RAISE frontend on port 80 of your device.  
