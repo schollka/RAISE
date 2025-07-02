@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  L.tileLayer('http://localhost/tiles/{z}/{x}/{y}.png', {
     maxZoom: 18,
     attribution: 'Map data from © <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>'
   }).addTo(map);

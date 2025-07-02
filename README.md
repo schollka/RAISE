@@ -335,23 +335,34 @@ To ensure the RAISE OGN Client starts automatically on boot, set up a `systemd` 
    Copy the settings into the configutation file:
 
    ```nginx
+   proxy_cache_path /var/cache/nginx/tiles levels=1:2 keys_zone=tilecache:10m max_size=1g inactive=10d use_temp_path=off;
+
    server {
-       listen 80;
-       server_name _;
+      listen 80;
+      server_name _;
 
-       root /home/pi/RAISE/web;
-       index index.html;
+      root /var/www/raise;
+      index index.html;
 
-       location /api/ {
-           proxy_pass http://127.0.0.1:8181;
-           proxy_set_header Host $host;
-           proxy_set_header X-Real-IP $remote_addr;
-           proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-       }
+      location /api/ {
+         proxy_pass http://127.0.0.1:8181;
+         proxy_set_header Host $host;
+         proxy_set_header X-Real-IP $remote_addr;
+         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      }
 
-       location / {
-           try_files $uri $uri/ /index.html;
-       }
+      location / {
+         try_files $uri $uri/ /index.html;
+      }
+
+      location /tiles/ {
+         proxy_pass https://tile.openstreetmap.org/;
+         proxy_cache tilecache;
+         proxy_cache_valid 200 302 10d;
+         proxy_cache_use_stale error timeout;
+         proxy_set_header Host tile.openstreetmap.org;
+         proxy_set_header User-Agent "RAISE-MapTileProxy/1.0";
+      }
    }
    ```
 
@@ -359,6 +370,8 @@ To ensure the RAISE OGN Client starts automatically on boot, set up a `systemd` 
 
    ```bash
    sudo ln -s /etc/nginx/sites-available/raise /etc/nginx/sites-enabled/raise
+   sudo mkdir -p /var/cache/nginx/tiles
+   sudo chown -R www-data:www-data /var/cache/nginx
    sudo nginx -t
    sudo systemctl reload nginx
    ```
