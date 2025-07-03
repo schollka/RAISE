@@ -11,7 +11,9 @@ This documentation provides detailed step-by-step instructions to ensure correct
 ## Use Case and System Requirements
 
 ### Use Case
-RAISE is designed to be a localy hosted airspace monitoring tool. It can be used at small uncontrolled airfields. RAISE will monitor the position of aircrafts in the vivinity of the airfield and display them on a web interface. The machine lerning algorithm will detect approaching aircraft and mark them accordingly.
+RAISE is designed to be a localy hosted airspace monitoring tool. It can be used at small uncontrolled airfields. RAISE will monitor the position of aircrafts in the vivinity of the airfield and display them on a web interface. The machine lerning algorithm will detect approaching aircraft and mark them accordingly. The web interface can be seen below, with a marked aircraft.
+
+![Initial View](/doc/GUI_Landing_2.png)
 
 ### System Overview
 
@@ -630,19 +632,19 @@ python manualLandingLabeler.py
 You will be presented with a plot similar to the one below:
 
 #### Initial View (Before Selection)
-![Initial View](/doc/GUI_landingView.png)
+![Initial View](/doc/GUI_landingNotMarked_2.png)
 
 Click on the waypoint where the pilot likely made the mental decision to start the approach.
 
 After your selection, the plot will update to highlight all waypoints that follow the selected point:
 
 #### Marked View (After Selection)
-![Marked View](/doc/GUI_landingViewMarked.png)
+![Marked View](/doc/GUI_landingMarked_2.png)
 
 You can:
 - Change your selection by clicking a different point.
 - Click **`Done`** to confirm the label and proceed to the next flight.
-- If the trajectory appears unusual (e.g., from a police or EMS helicopter), **do not select anything** and click **`Skip flight`**.
+- If the trajectory appears unusual (e.g., from a police or EMS helicopter), **do not select anything** and click **`Remove flight`**. It will be deleted from the databasse
 
 ### 5. Prepare Training Data
 
