@@ -1,10 +1,9 @@
 #Own gitignore
-activateVenv.bat
-startVenv.ps1
 *.pkl
 *.db*
 parameters.yaml
 tfenv310/
+RAISE/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
