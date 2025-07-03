@@ -10,6 +10,9 @@ This documentation provides detailed step-by-step instructions to ensure correct
 
 ## Use Case and System Requirements
 
+### Use Case
+RAISE is designed to be a localy hosted airspace monitoring tool. It can be used at small uncontrolled airfields. RAISE will monitor the position of aircrafts in the vivinity of the airfield and display them on a web interface. The machine lerning algorithm will detect approaching aircraft and mark them accordingly.
+
 ### System Overview
 
 RAISE integrates into existing Open Glider Network (OGN) receiver setups, commonly found at airfields and often based on Raspberry Pi hardware. The system passively listens to decoded FLARM messages in real time and identifies approaching aircraft that are likely to land.
