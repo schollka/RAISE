@@ -608,7 +608,7 @@ In a terminal:
 
 ```bash
 cd /path/to/raise
-source RAISEenv/Scripts/activate
+source RAISE/Scripts/activate
 ```
 
 ### 4. Run Labeling Script
