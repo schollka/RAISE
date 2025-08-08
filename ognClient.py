@@ -303,12 +303,13 @@ class OgnClient:
         r"\[\s*(?P<lat>[+-]?\d+\.\d+),\s*(?P<lon>[+-]?\d+\.\d+)\]deg\s+"
         r"(?P<alt>\d+)m\s+(?P<vs>[+-]?\d+\.\d+)m/s\s+(?P<speed>\d+\.\d+)m/s\s+"
         r"(?P<track>\d+\.\d+)deg\s+(?P<turnRate>[+-]?\d+\.\d+)deg/s\s+"
-        r"(?P<aircraftType>__\d)\s+(?P<acftDim>\d{2}x\d{2})m\s+"
+        r"(?P<aircraftType>[A-Z_0-9]{3})\s+(?P<acftDim>\d{2}x\d{2})m\s+"
         r"(?P<stealth>[OS])\s+:(?P<noTrack>[0-9a-f]{3})__"
         r"(?P<freqOffset>[+-]?\d+\.\d+)kHz\s+(?P<snr>\d+\.\d+)/(?P<rssi>\d+\.\d+)dB/(?P<errCount>\d+)\s+"
         r"(?P<eStatus>\d+)e\s+(?P<distance>\d+\.\d+)km\s+(?P<bearing>\d+\.\d+)deg\s+(?P<elevAngle>[+-]?\d+\.\d+)deg"
         r"(?:\s*(?P<relayed>\+))?\s*$"
     )
+
 
     def parseOgnLine(self, line):
         #decode recieved message into seperate data blocks
@@ -927,7 +928,8 @@ class OgnClient:
                             line = line.strip()
                             if not line or not line[0].isdigit(): #if the revieved line is not an aircraft data package then continue
                                 continue
-                            
+                            if self.verbose >= 4:
+                                print(line)
                             self.processMessageLine(line) #process the recieved data
                             self.removeOldTracks() #remove old data from the RAM
                             self.airborneDataWriteDetection() #write airbone flight data
