@@ -793,6 +793,12 @@ class OgnClient:
 
         aircraftId = parsed["aircraft"] #get the aircraft ID from message
         self.aircraftTracks[aircraftId]["track"].append(parsed) #append the recieved data
+        if self.verbose >= 3:
+            lat = parsed.get("lat", None)
+            lon = parsed.get("lon", None)
+            alt = parsed.get("alt", None)
+            callsign = self.callsignDB.getCallsign(aircraftId)
+            print(f"Received dataset from an aircraft at {lat:.5f}, {lon:.5f} at {alt} m, callsign was resolved to {callsign}")
         self.stateMachine(aircraftId) #compute the state of the aircraft
         run_coroutine_threadsafe(push_position_update(aircraftId), self.loop) #push the data to the frontend via webserver
 
