@@ -791,7 +791,7 @@ class OgnClient:
         parsed = self.parseOgnLine(line)
         if not parsed:
             return
-        if self.verbose >= 3:
+        if self.verbose >= 2:
             print("Recieved message from ogn-decode.")
 
         aircraftId = parsed["aircraft"] #get the aircraft ID from message
@@ -930,7 +930,7 @@ class OgnClient:
                             line = line.strip()
                             if not line or not line[0].isdigit(): #if the revieved line is not an aircraft data package then continue
                                 continue
-                            if self.verbose >= 4:
+                            if self.verbose >= 6:
                                 print(line)
                             self.processMessageLine(line) #process the recieved data
                             self.removeOldTracks() #remove old data from the RAM
@@ -958,16 +958,16 @@ if __name__ == "__main__":
         try:
             client = OgnClient()
             client.startServer()
-            client.runClient()  #läuft, bis ein Fehler oder Ctrl+C auftritt
+            client.runClient()  #run until an error occurs or it is temrinated by the user
         except KeyboardInterrupt:
             print("\n[INFO] Aborted by user (Strg+C)")
-            break  #beende die Hauptschleife
+            break  #terminate main loop
         except Exception as e:
             print(f"[ERROR] Unexpected error: {e}")
             traceback.print_exc()
             print("[INFO] Restarting client in 5 seconds...")
             time.sleep(5)
-            continue  #versuche Neustart
+            continue  #try to restart
         finally:
             if client is not None:
                 try:
