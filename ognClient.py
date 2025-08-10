@@ -39,6 +39,8 @@ from asyncio import run_coroutine_threadsafe
 import threading
 from uvicorn import Config, Server 
 from callsignDBLookUp import DDBLookup
+import time
+import traceback
 
 print("Modules loaded.")
 
@@ -951,17 +953,25 @@ class OgnClient:
 
 
 if __name__ == "__main__":
-    client = None
-    try:
-        client = OgnClient()
-        client.startServer()
-        client.runClient()
-    except KeyboardInterrupt:
-        print("\n[INFO] Aborted by user (Strg+C)")
-    except Exception as e:
-        print(f"[ERROR] Unexpected error: {e}")
-    finally:
-        if client is not None:
-            client.shutdown()
+    while True:
+        client = None
+        try:
+            client = OgnClient()
+            client.startServer()
+            client.runClient()  #läuft, bis ein Fehler oder Ctrl+C auftritt
+        except KeyboardInterrupt:
+            print("\n[INFO] Aborted by user (Strg+C)")
+            break  #beende die Hauptschleife
+        except Exception as e:
+            print(f"[ERROR] Unexpected error: {e}")
+            traceback.print_exc()
+            print("[INFO] Restarting client in 5 seconds...")
+            time.sleep(5)
+            continue  #versuche Neustart
+        finally:
+            if client is not None:
+                try:
+                    client.shutdown()
+                except Exception as shutdownErr:
+                    print(f"[WARN] Error during shutdown: {shutdownErr}")
             print("[INFO] Client terminated.")
-
