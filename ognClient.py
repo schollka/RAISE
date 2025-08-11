@@ -348,6 +348,10 @@ class OgnClient:
             d["time"] = self.time.getSystemTime().time()
             d["aircraftStates"] = self.createPlaceHolderAircraftStates()
             d["flightEvents"] = self.createPlaceHolderFlightEvent()
+            d["noTrackVal"] = int(d["noTrack"], 16) #convert hex to int
+            d["parseOgnLine"] = (d["stealth"] == "O") and not (d["noTrackVal"] & 0x1)
+            # noTrackVal is a Hexcode
+            # Bit 0 (0x01) -> No-Tracking-Flag (1 = Tracking not allowed, 0 = Tracking allowed)
         except Exception as e:
             print(f"OGN message parsing error: {e}")
             return None
@@ -794,16 +798,19 @@ class OgnClient:
         if self.verbose >= 2:
             print("Recieved message from ogn-decode.")
 
-        aircraftId = parsed["aircraft"] #get the aircraft ID from message
-        self.aircraftTracks[aircraftId]["track"].append(parsed) #append the recieved data
-        if self.verbose >= 3:
-            lat = parsed.get("lat", None)
-            lon = parsed.get("lon", None)
-            alt = parsed.get("alt", None)
-            callsign = self.callsignDB.getCallsign(aircraftId)
-            print(f"Received dataset from an aircraft at {lat:.5f}, {lon:.5f} at {alt} m, callsign was resolved to {callsign}")
-        self.stateMachine(aircraftId) #compute the state of the aircraft
-        run_coroutine_threadsafe(push_position_update(aircraftId), self.loop) #push the data to the frontend via webserver
+        if parsed["parseOgnLine"]:
+            aircraftId = parsed["aircraft"] #get the aircraft ID from message
+            self.aircraftTracks[aircraftId]["track"].append(parsed) #append the recieved data
+            if self.verbose >= 3:
+                lat = parsed.get("lat", None)
+                lon = parsed.get("lon", None)
+                alt = parsed.get("alt", None)
+                callsign = self.callsignDB.getCallsign(aircraftId)
+                print(f"Received dataset from an aircraft at {lat:.5f}, {lon:.5f} at {alt} m, callsign was resolved to {callsign}")
+            self.stateMachine(aircraftId) #compute the state of the aircraft
+            run_coroutine_threadsafe(push_position_update(aircraftId), self.loop) #push the data to the frontend via webserver
+        else:
+            print("Tracking not allowed")
 
     def printInfos(self):
         #print basic infos to the terminal
