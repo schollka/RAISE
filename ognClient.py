@@ -349,9 +349,7 @@ class OgnClient:
             d["aircraftStates"] = self.createPlaceHolderAircraftStates()
             d["flightEvents"] = self.createPlaceHolderFlightEvent()
             d["noTrackVal"] = int(d["noTrack"], 16) #convert hex to int
-            d["trackingAllowed"] = (d["stealth"] == "O") and not (d["noTrackVal"] & 0x1)
-            # noTrackVal is a Hexcode
-            # Bit 0 (0x01) -> No-Tracking-Flag (1 = Tracking not allowed, 0 = Tracking allowed)
+            d["stealth"] = d.get("stealth", "S")  # 'O'pen or 'S'tealth
         except Exception as e:
             print(f"OGN message parsing error: {e}")
             return None
@@ -798,7 +796,7 @@ class OgnClient:
         if self.verbose >= 2:
             print("Recieved message from ogn-decode.")
 
-        if parsed["trackingAllowed"]:
+        if parsed["stealth"] == 'O':
             aircraftId = parsed["aircraft"] #get the aircraft ID from message
             self.aircraftTracks[aircraftId]["track"].append(parsed) #append the recieved data
             if self.verbose >= 3:
