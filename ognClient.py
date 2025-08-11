@@ -810,7 +810,8 @@ class OgnClient:
             self.stateMachine(aircraftId) #compute the state of the aircraft
             run_coroutine_threadsafe(push_position_update(aircraftId), self.loop) #push the data to the frontend via webserver
         else:
-            print("Tracking not allowed")
+            if self.verbose >= 2:
+                print("Tracking not allowed")
 
     def printInfos(self):
         #print basic infos to the terminal
