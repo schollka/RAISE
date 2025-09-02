@@ -727,16 +727,16 @@ class OgnClient:
         
             # write in-flight data
             if aircraft.get("stableState") != "airborne":
-                return  #only continue when the aircraft is airborne
+                continue  # only continue when the aircraft is airborne
             
             if aircraft.get('inFlightDataStored'):
-                return #continue if the in flight data was already stored
+                continue  # continue if the in flight data was already stored
 
             airborneSince = aircraft.get("airborneSince") #get the time since the aircraft is airborne
             lastWritten = aircraft.get("lastTimeDataWrittenToDB") #get the time when the last data was dumped to the DB
             
             if not isinstance(airborneSince, datetime):
-                return #check if a valid airborne time was recieved
+                continue  # check if a valid airborne time was received
 
             #get system parameters
             minAirborne = self.databaseParameters["MINIMUM_TIME_AIRBORNE"]
@@ -748,13 +748,13 @@ class OgnClient:
 
             #do not continue if the aircraft is not airborne long enough
             if timeAirborne < (minAirborne + storeInterval):
-                return
+                continue
 
             #check if lastWritten was set, if so then how much time elapsed since then
             if isinstance(lastWritten, datetime):
                 timeSinceLastWrite = (now - lastWritten).total_seconds()
                 if timeSinceLastWrite < storeInterval:
-                    return
+                    continue
                 
             #check if the aircraft is near enough to the airport
             now = self.time.getSystemTime() #get the current time
@@ -764,9 +764,9 @@ class OgnClient:
             if len(recentPoints) >= self.stateEstimationParameters["MIN_NUMBER_DATA_POINTS_STATE_ESTIMATION"]: #ensure a minimum number of points is used
                 avgDist = mean(p["distanceToAirport"] for p in recentPoints)
                 if avgDist >= maximumAverageDistance:
-                    return
+                    continue
             else:
-                return
+                continue
 
             #if all conditions are met, then randomly decide to store the data
             if self.randomStorageFlag(probability=self.databaseParameters['PROBABILITY_OF_IN_FLIGHT_STORAGE']):
