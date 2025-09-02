@@ -273,6 +273,18 @@ class OgnClient:
         asyncio.set_event_loop(self.loop)
         self.loop.run_forever()
 
+    def schedule_push_update(self, aircraftId):
+        """
+        Safely schedule a frontend push if an event loop is running.
+        No-op when the web server/event loop is not started (e.g., batch mode).
+        """
+        try:
+            if getattr(self, "loop", None) and self.loop.is_running():
+                run_coroutine_threadsafe(push_position_update(aircraftId), self.loop)
+        except Exception as e:
+            if self.verbose >= 2:
+                print(f"[WARN] Could not schedule push update: {e}")
+
     '''
     Regex expression for OGN message decode
     Example message: 0.936sec:868.370MHz: 1:2:DD9A70 142236: [ +49.00106,  +9.07859]deg   268m  +0.0m/s   0.0m/s 180.0deg  +0.0deg/s __1 04x04m O :01f__-30.02kHz 42.8/52.5dB/0  0e 0.1km 285.8deg -4.6deg + !
@@ -808,7 +820,7 @@ class OgnClient:
                 callsign = self.callsignDB.getCallsign(aircraftId)
                 print(f"Received dataset from an aircraft at {lat:.5f}, {lon:.5f} at {alt} m, callsign was resolved to {callsign}")
             self.stateMachine(aircraftId) #compute the state of the aircraft
-            run_coroutine_threadsafe(push_position_update(aircraftId), self.loop) #push the data to the frontend via webserver
+            self.schedule_push_update(aircraftId) #push the data to the frontend via webserver if available
         else:
             if self.verbose >= 2:
                 print("Tracking not allowed")
@@ -869,7 +881,7 @@ class OgnClient:
         aircraftId = data["aircraft"] #get the aircraft ID from the recieved data
         self.aircraftTracks[aircraftId]["track"].append(data) #store data in deque
         self.stateMachine(aircraftId=aircraftId) #compute the state of the aircraft
-        asyncio.run(push_position_update(aircraftId)) #push the data via webserver
+        self.schedule_push_update(aircraftId) #push the data via webserver if available
 
 
     def monitorSignalReception(self):
