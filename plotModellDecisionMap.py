@@ -7,6 +7,28 @@ import contextily as ctx
 from shapely.geometry import Point
 import numpy as np
 
+#colormap für probability
+import matplotlib as mpl
+#cmap = plt.cm.turbo                          #oder: plt.cm.viridis
+cmap = plt.cm.viridis
+norm = mpl.colors.Normalize(vmin=0.0, vmax=1.0)
+
+def plotPointsColoredByProbability(ax, gdfSlice, opacity=0.35, size=50):
+    #kompakter Scatter statt GeoPandas-plot, damit Colorbar geht
+    xs = gdfSlice.geometry.x.values
+    ys = gdfSlice.geometry.y.values
+    sc = ax.scatter(
+        xs, ys,
+        c=gdfSlice["probability"].values,
+        cmap=cmap,
+        norm=norm,
+        alpha=opacity,
+        s=size,
+        linewidths=0
+    )
+    return sc
+
+
 # Argumente parsen
 parser = argparse.ArgumentParser()
 parser.add_argument("csvPath", type=str, help="Path to the CSV file with landing probabilities")
@@ -22,7 +44,7 @@ avgHeadingTime = 45
 numberBins = 20
 landingColor = "#7f0288"
 otherColor = "#db9600"
-opacity = 0.35
+opacity = 0.50
 
 # CSV laden
 df = pd.read_csv(csvPath)
@@ -126,6 +148,20 @@ if runways:
         plt.tight_layout()
         plt.show()
 
+        #zusatzplot: runway-spezifisch mit kontinuierlicher Einfärbung
+        fig_c, ax_c = plt.subplots(figsize=(10, 10))
+        sc = plotPointsColoredByProbability(ax_c, runwayGroup, opacity=opacity, size=50)
+        ax_c.set_xlim(runwayGroup.geometry.x.min() - 500, runwayGroup.geometry.x.max() + 500)
+        ax_c.set_ylim(runwayGroup.geometry.y.min() - 500, runwayGroup.geometry.y.max() + 500)
+        ctx.add_basemap(ax_c, source=ctx.providers.OpenStreetMap.Mapnik)
+        ax_c.set_title(f"Approach Paths (Runway {runwayId}) – colored by probability")
+        ax_c.set_axis_off()
+        cbar = plt.colorbar(sc, ax=ax_c, fraction=0.035, pad=0.01)
+        cbar.set_label("Probability")
+        plt.tight_layout()
+        plt.show()
+
+
         # Histogramm mit relativer Häufigkeit und mehr X-Ticks
         fig_hist, ax_hist = plt.subplots(figsize=(8, 4))
         probs = runwayGroup["probability"]  # oder gdf["probability"] für den kombinierten Plot
@@ -157,6 +193,20 @@ if runways:
     plt.tight_layout()
     plt.show()
 
+    #zusatzplot: alle flüge kombiniert mit kontinuierlicher Einfärbung
+    fig_c_all, ax_c_all = plt.subplots(figsize=(10, 10))
+    sc = plotPointsColoredByProbability(ax_c_all, gdf, opacity=opacity, size=50)
+    ax_c_all.set_xlim(gdf.geometry.x.min() - 500, gdf.geometry.x.max() + 500)
+    ax_c_all.set_ylim(gdf.geometry.y.min() - 500, gdf.geometry.y.max() + 500)
+    ctx.add_basemap(ax_c_all, source=ctx.providers.OpenStreetMap.Mapnik)
+    ax_c_all.set_title(f"Approach Paths – colored by probability")
+    ax_c_all.set_axis_off()
+    cbar = plt.colorbar(sc, ax=ax_c_all, fraction=0.035, pad=0.01)
+    cbar.set_label("Probability")
+    plt.tight_layout()
+    plt.show()
+
+
     # Histogramm für alle Flüge kombiniert
     fig_hist, ax_hist = plt.subplots(figsize=(8, 4))
     probs = gdf["probability"]
@@ -186,6 +236,20 @@ else:
     ax.set_axis_off()
     plt.tight_layout()
     plt.show()
+
+    #zusatzplot: kombiniert, kontinuierliche Einfärbung
+    fig_c, ax_c = plt.subplots(figsize=(10, 10))
+    sc = plotPointsColoredByProbability(ax_c, gdf, opacity=opacity, size=50)
+    ax_c.set_xlim(gdf.geometry.x.min() - 500, gdf.geometry.x.max() + 500)
+    ax_c.set_ylim(gdf.geometry.y.min() - 500, gdf.geometry.y.max() + 500)
+    ctx.add_basemap(ax_c, source=ctx.providers.OpenStreetMap.Mapnik)
+    ax_c.set_title(f"Approach Paths – colored by probability")
+    ax_c.set_axis_off()
+    cbar = plt.colorbar(sc, ax=ax_c, fraction=0.035, pad=0.01)
+    cbar.set_label("Probability")
+    plt.tight_layout()
+    plt.show()
+
 
     # Histogramm für alle Flüge kombiniert
     fig_hist, ax_hist = plt.subplots(figsize=(8, 4))
