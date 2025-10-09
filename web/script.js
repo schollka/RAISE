@@ -18,7 +18,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   infoSpeed = document.getElementById('info-speed');
   infoLastTimeSeen = document.getElementById('info-lastTimeSeen');
 
-  const config = await fetch(`http://${SERVER}:${API_PORT}/config`).then(r => r.json());
+  const config = await fetch(`http://${SERVER}:${API_PORT}/api/config`).then(r => r.json());
   const map = L.map('map', {
     zoomControl: false
   }).setView([config.airport.lat, config.airport.lon], config.mapZoom || 12);
@@ -26,6 +26,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   L.control.zoom({ position: 'bottomright' }).addTo(map);
 
   L.tileLayer('http://ogn/tiles/{z}/{x}/{y}.png', {
+  //L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 18,
     attribution: 'Map data from © <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>'
   }).addTo(map);
