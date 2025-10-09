@@ -12,12 +12,14 @@ try:
     file1 = 'DD9B60_2025-04-27.pkl'
     file2 = 'DDA286_2025-04-27.pkl'
     file3 = 'combinedData.pkl'
-    with open(file2, 'rb') as f:
+    file4 = 'DD9A61_2025-04-27.pkl'
+    file5 = 'DD9A61_2025-06-13.pkl'
+    with open(file4, 'rb') as f:
         flightData = pickle.load(f)  # erwartet z.B. ein Dict mit aircraftId als Keys
 
     for data in flightData:
-        #print(data)
-        #time.sleep(0.1)
+        #print("Data")
+        time.sleep(0.15)
         client.processMessageDict(data)
         client.removeOldTracks()
         client.monitorSignalReception()

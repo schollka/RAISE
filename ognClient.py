@@ -23,7 +23,8 @@ print("Loading Modules.")
 import socket
 import re
 from collections import defaultdict, deque
-from datetime import datetime, timedelta, timezone, time
+from datetime import datetime, timedelta, timezone
+from datetime import time as dtime
 from statistics import mean
 from math import radians, sin, cos, sqrt, atan2
 import select
@@ -39,7 +40,7 @@ from asyncio import run_coroutine_threadsafe
 import threading
 from uvicorn import Config, Server 
 from callsignDBLookUp import DDBLookup
-import time
+#import time
 import traceback
 
 print("Modules loaded.")
@@ -262,7 +263,7 @@ class OgnClient:
                 referenceDate = datetime.now(timezone.utc) 
 
             #Combine date and time into a valid structure
-            asynSysTime = datetime.combine(referenceDate.date(), time(hh, mm, ss), tzinfo=timezone.utc)
+            asynSysTime = datetime.combine(referenceDate.date(), dtime(hh, mm, ss), tzinfo=timezone.utc)
             self.time = asynSysTime #set asynchrone system time
 
         def getSystemTime(self):
