@@ -4,6 +4,8 @@
 parameters.yaml
 tfenv310/
 RAISE/
+*.csv
+pklToDatabaseReader.py
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
