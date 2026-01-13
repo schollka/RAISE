@@ -1,0 +1,24 @@
+# machine learning
+tensorflow<2.11
+numpy<2
+scikit-learn
+matplotlib
+seaborn
+tqdm
+contextily
+
+# webserver
+uvicorn
+websockets
+fastapi
+requests
+
+# database
+sqlalchemy
+
+# data handling & visualization
+pandas
+pyyaml
+geopandas
+contextily
+shapely

@@ -1,0 +1,15 @@
+# machine learning
+numpy<2
+tflite-runtime
+
+# webserver
+uvicorn
+websockets
+fastapi
+requests
+
+# database
+sqlalchemy
+
+# other
+pyyaml

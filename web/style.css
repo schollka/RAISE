@@ -1,0 +1,130 @@
+body {
+  margin: 0;
+  padding: 0;
+  overflow: visible;
+  font-family: sans-serif;
+}
+
+#page-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  background-color: #222;
+  color: white;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 16px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+  z-index: 1000;
+}
+
+.header-left {
+  display: flex;
+  flex-direction: column;
+}
+
+.header-title {
+  font-size: 20px;
+  font-weight: bold;
+}
+
+.highlight-ai {
+  color: #66ccff;
+}
+
+.version {
+  font-size: 14px;
+  font-weight: normal;
+  margin-left: 6px;
+  opacity: 0.7;
+}
+
+.header-subtitle {
+  font-size: 12px;
+  opacity: 0.8;
+  margin-top: 2px;
+}
+
+.header-right a {
+  display: flex;
+  align-items: center;
+  height: 24px;
+  width: 24px;
+}
+
+.github-icon {
+  width: 24px;
+  height: 24px;
+  filter: invert(100%);
+  opacity: 0.8;
+  transition: opacity 0.2s ease;
+}
+
+.github-icon:hover {
+  opacity: 1;
+}
+
+#map {
+  position: absolute;
+  top: 60px; /* unterhalb des Headers */
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 0;
+}
+
+.aircraft-label {
+  background: white;
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+#aircraft-info {
+  position: fixed;
+  top: 70px;
+  right: 10px;
+  width: 260px;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 12px;
+  border: 1px solid #ddd;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  padding: 16px 20px;
+  z-index: 9999;
+  display: none;
+  font-family: 'Segoe UI', sans-serif;
+  color: #222;
+  backdrop-filter: blur(6px);
+}
+
+#aircraft-info p {
+  display: flex;
+  justify-content: space-between;
+  margin: 6px 0;
+  font-size: 14px;
+}
+
+#aircraft-info .label {
+  flex: 1;
+  color: #333;
+}
+
+#aircraft-info .value {
+  font-weight: 600;
+  text-align: right;
+  min-width: 40px;
+}
+
+#aircraft-info .unit {
+  color: #666;
+  margin-left: 6px;
+}
+
+#aircraft-info .info-separator {
+  margin: 8px 0;
+  border-bottom: 1px solid #e0e0e0;
+}
+

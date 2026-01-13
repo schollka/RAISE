@@ -1,0 +1,65 @@
+#general system parameters
+systemParameters: 
+  HOST: 127.0.0.1                       #IP adress of the OGN decode TCP server (localhost) [IP]
+  PORT: 50001                           #port number of the OGN decode TCP server [-]
+  DEQUE_LENGHT: 1200                    #maximum number of data points in the buffer (RAM) per aircraft [-]
+  STORAGE_DURATION_SECONDS: 600         #maximum duration a data point is retained in buffer (RAM) [s]
+  MAXIMUM_MESSAGES_IN_INPUT_BUFFER: 10  #maximum number of messages that are held in the input buffer for processing [-]
+  REALTIME_MODE: True                  #run the system in realtime mode (deployed) or in asynchrone mode (testing) [bool]
+  VERBOSE: 1                            #control system messages, the higher the number the more output is given [-]
+
+databaseParameters:
+  ENABLE_DATABASE: True                 #if set to ture, then the arrival, deparure and in flight data is written to the specified database [boolean]
+  DATABASE_PATH: '/home/pi/RAISE_DB/flightData.db'        #path to the DB that stores all flight data
+  PRIVATE_AIRCRAFT_ID: True             #the aircraft identifier is not written to the database if this setting is set to true [boolean]
+  PRIVATE_TIMESTAMP: True               #the date and year of the flight is not written to the database if this setting is set to true [boolean]
+  MINIMUM_NUMBER_DATAPOINTS: 60         #minimum number of data points for a data set to be written into the database [-]
+  STORAGE_DURATION_ARRIVAL: 300         #maximum time window of track data that is stored into the database when the touch down is detected, use n * 60s with n > 1 and being a natural number [s]
+  PROBABILITY_OF_DEPATURE_STORAGE: 0.25  #probability of storing the depature track data into the database after the deparure was detected [-]
+  STORAGE_DURATION_PRE_DEPARTURE: 60    #maximum time window of track data that is stored in the database before the take off was detected [s]
+  STORAGE_DURATION_AFT_DEPARTURE: 180   #maximum time window of track data that is stored in the database after the take off was detected [s]
+  #the parameters should satify this equation: STORAGE_DURATION_PRE_DEPARTURE + STORAGE_DURATION_AFT_DEPARTURE = n * 60s with n > 1 and being a natural number
+  STORAGE_DURATION_IN_FLIGHT: 240       #maximum time window of track data that is stored in the database during in flight data storage, use n * 60s with n > 1 and being a natural number [s]
+  MINIMUM_TIME_AIRBORNE: 120            #minimum time the aircraft has to be airborne to be able to store the in flight data into the database [s]
+  PROBABILITY_OF_IN_FLIGHT_STORAGE: 0.15       #probability of storing the in flight data into the database [-]
+  MAX_DIST_TO_AIRPORT_IN_FLIGHT_STORAGE: 3500  #maximum average distance to the airport for a in flight data storage event [km]
+
+#airport parameters
+airportParameters:
+  AIRPORT_ALTITUDE: 266         #altitude of the airport above mean sea level [m]
+  AIRPORT_LATITUDE: 49.000913   #latitude of the airport reference position [°]
+  AIRPORT_LONGITUDE: 9.083304   #longitude of the airport reference positoin [°]
+  WEB_ZOOM_LEVEL: 14            #zoom level for the web front end map [-]
+
+#parameters used for the aircraft state estimation
+stateEstimationParameters:
+  STATE_DETECTION_TIME_WINDOW: 30             #time window used to average data points for the state estimation [s]
+  ALTITUDE_TOLERANCE: 25                      #allowed tolerance of the aircraft altitude above/below AIRPORT_ALTITUDE to classify as on-ground [m]
+  MAX_ON_GROUND_SPEED: 25                     #maximum allowed aircraft ground speed to classify as on-ground [km/h]
+  MIN_NUMBER_DATA_POINTS_STATE_ESTIMATION: 2  #minimum number of data points for the average-based state estimation [-]
+  ON_GROUND_POSITION_RADIUS: 750              #maximum distance from airport to classify as on-ground [m]
+  DEBOUNCE_TIME: 5                            #state debouncing, time a state must be continously present to be considered stable [s]
+
+#signal reception state estimation parameters
+signalReceptionParameters:
+  AIRCRAFT_LOST_TIME: 30              #aircraft is classified lost, if no data is recieved after the specified duration [s]
+  AIRCRAFT_HEARBEAT_MISSING_TIME: 10  #the heartbeat of the aircraft is missing, if no data is recieved after the specified duration. It is not yet classified as lost [s]
+
+#machine learning parameters
+machineLearningParameters:
+  ENABLE_MODEL: False                  #if set to true, the provided model is used for the landing prediction. False disables any predictions [boolean]
+  MODEL_PATH: '/home/pi/RAISE_DB/landingClassifierLite.tflite' #path to the trained model used for predicting landings at this airport
+  REALTIME_PROBABILITY_THRESHOLD: 0.60 #the model has to compute a probability for landing higher then this treshold, to change the state to landing [-]
+  MAX_DISTANCE_TO_AIRPORT_FOR_PREDICTION: 3000 #maximum distance from the aircraft to the airport to trigger the model prediction for landing detection [m]
+  MAX_ALT_FOR_PREDICTION: 650         #maximum GPS altitude of the aircraft to trigger the model prediction for landing detection [m]
+  #seuqence generation
+  SEQUENCE_TIME_WINDOW: 60            #size of the rolling time window for the ML landing detection [s]
+  SEQUENCE_LENGTH: 60                 #number of points in the rolling time window, SEQUENCE_TIME_WINDOW * frequencyRecievedMessages [-]
+  MIN_NUM_POINTS_SEQUENCE: 50         #minimum number of points in the time window used for ML landing detection [-]
+  FEATURES: ["lat", "lon", "altitude", "groundSpeed", "climbRate", "track", "turnRate"] #features from the data set used for the model prediction
+
+#web server parameters
+webServerParameters:
+  LOOK_UP_ID_TO_CALLSIGN: True        #the recieved aircraft ID is looked up in the glidernet database and the corresponding callsign is displayed (https://ddb.glidernet.org/download/) [boolean]
+  ID_DB_REFRESH_INTERVALL: 43200      #refresh rate after how many seconds the ID/callsign DB is reloaded, the license specifies that the DB shall not be older then 24h [s]
+  API_PORT: 8181                      #port number of the API providing the data to the web front end, if changed it must be manually changed in ./web/script.js (API_PORT = 8181) [-]

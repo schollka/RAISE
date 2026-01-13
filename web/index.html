@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>RAISE Live Map</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+</head>
+<body>
+  <header id="page-header">
+    <div class="header-left">
+      <div class="header-title">R<span class="highlight-ai">AI</span>SE <span class="version">v1.1.0</span></div>
+      <div class="header-subtitle">Runway Approach Identification for Silent Entries</div>
+    </div>
+    <div class="header-right">
+      <a href="https://github.com/schollka/RAISE" target="_blank" title="View on GitHub">
+        <img src="assets/github-mark.svg" alt="GitHub" class="github-icon">
+      </a>
+    </div>
+  </header>
+
+  <div id="aircraft-info">
+    <h3 id="info-callsign">-</h3>
+    <div class="info-separator"></div>
+    <p>
+      <span class="label">GPS Altitude:</span>
+      <span class="value" id="info-alt">-</span>
+      <span class="unit">m</span>
+    </p>
+    <p>
+      <span class="label">GPS Ground Speed:</span>
+      <span class="value" id="info-speed">-</span>
+      <span class="unit">km/h</span>
+    </p>
+    <p>
+      <span class="label">Data recieved at:</span>
+      <span class="value" id="info-lastTimeSeen">-</span>
+    </p>
+  </div>
+
+  <div id="map"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
